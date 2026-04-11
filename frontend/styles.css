@@ -1,5 +1,23 @@
+/* ---------------- APP ---------------- */
+header[data-testid="stHeader"] {
+    background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+    border-bottom: none;
+}
 
+/* Quita sombras/ruido */
+header[data-testid="stHeader"]::before {
+    box-shadow: none !important;
+}
+.uv-header {
+    margin-top: 3rem;
+}
 
+.auth-subtitle {
+    color: #475569;
+    font-size: 0.95rem;
+    margin-bottom: 14px;
+    line-height: 1.5;
+}
 .stApp {
     font-family: "Segoe UI", sans-serif;
     color: #1e293b;
@@ -8,10 +26,15 @@
 }
 
 .block-container {
-    padding-top: 1.5rem !important;
-    padding-bottom: 1.5rem !important;
-    max-width: 1200px;
+    padding-top: 0.7rem !important;
+    padding-bottom: 1.2rem !important;
+    max-width:100%;
 }
+
+section.main > div {
+    padding-top: 0.2rem !important;
+}
+
 
 div[data-testid="stVerticalBlock"] > div:empty {
     display: none !important;
@@ -21,13 +44,29 @@ div[data-testid="stVerticalBlock"] > div:empty {
 h1, h2, h3 {
     color: #0f172a;
     letter-spacing: -0.02em;
-    line-height: 1.3;
+    line-height: 1.2;
     font-weight: 700;
+}
+
+h1 {
+    font-size: 1.75rem;
+    margin-bottom: 0.25rem;
+}
+
+h2 {
+    font-size: 1.35rem;
+    margin-bottom: 0.35rem;
+}
+
+h3 {
+    font-size: 1.05rem;
+    margin-bottom: 0.3rem;
 }
 
 /* ---------------- TABS ---------------- */
 [data-testid="stTabs"] {
-    margin-top: 0.5rem !important;
+    margin-top: 0.25rem !important;
+    margin-bottom: 0.7rem !important;
 }
 
 [data-testid="stTabs"] button {
@@ -35,7 +74,8 @@ h1, h2, h3 {
     color: #64748b !important;
     transition: all 0.2s ease;
     border-radius: 8px;
-    padding: 6px 16px;
+    padding: 6px 14px;
+    font-size: 0.9rem;
 }
 
 [data-testid="stTabs"] button[aria-selected="true"] {
@@ -46,10 +86,10 @@ h1, h2, h3 {
 /* ---------------- LEFT PANEL ---------------- */
 .gradient-panel {
     background: linear-gradient(145deg, #2563eb 0%, #0f172a 100%) !important;
-    padding: 40px 36px;
+    padding: 30px 28px;
     border-radius: 20px;
     color: white;
-    min-height: 520px;
+    min-height: 430px;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -64,50 +104,51 @@ h1, h2, h3 {
     position: absolute;
     top: -70px;
     right: -70px;
-    width: 200px;
-    height: 200px;
+    width: 180px;
+    height: 180px;
     background: rgba(255, 255, 255, 0.07);
     border-radius: 50%;
 }
 
 .gradient-title {
-    font-size: 2.3rem;
+    font-size: 1.9rem;
     font-weight: 700;
-    margin-bottom: 16px;
-    line-height: 1.15;
+    margin-bottom: 10px;
+    line-height: 1.1;
 }
 
 .gradient-subtitle {
-    font-size: 1rem;
+    font-size: 0.96rem;
     color: #dbe7ff;
-    margin-bottom: 28px;
-    line-height: 1.7;
+    margin-bottom: 18px;
+    line-height: 1.55;
 }
 
 .gradient-section {
-    font-size: 1rem;
+    font-size: 0.96rem;
     font-weight: 700;
-    margin-bottom: 14px;
+    margin-bottom: 10px;
 }
 
 .gradient-feature {
-    font-size: 0.95rem;
+    font-size: 0.92rem;
     color: #e2e8f0;
-    margin-bottom: 12px;
-    line-height: 1.65;
+    margin-bottom: 10px;
+    line-height: 1.55;
 }
 
 /* ---------------- LOGIN ---------------- */
 .auth-wrapper {
-    padding-top: 10px;
+    padding-top: 4px;
 }
 
 .card-header-text {
-    font-size: 1.6rem;
+    font-size: 1.35rem;
     font-weight: 700;
     color: #0f172a;
-    margin-bottom: 18px;
+    margin-bottom: 12px;
     letter-spacing: -0.02em;
+    line-height: 1.2;
 }
 
 .auth-box {
@@ -121,7 +162,11 @@ h1, h2, h3 {
 /* ---------------- TEXTS ---------------- */
 p, label, .stText {
     color: #475569;
-    line-height: 1.6;
+    line-height: 1.55;
+}
+
+p {
+    margin-bottom: 0.45rem;
 }
 
 /* ---------------- INPUTS ---------------- */
@@ -134,7 +179,7 @@ p, label, .stText {
 .stTextInput > div > div > input {
     border-radius: 14px;
     border: none;
-    padding: 14px 16px;
+    padding: 13px 15px;
     font-size: 14px;
     background-color: #f8fafc;
     box-shadow: inset 0 2px 5px rgba(0,0,0,0.06);
@@ -183,17 +228,246 @@ p, label, .stText {
 hr {
     border: none;
     border-top: 1px solid #e2e8f0;
+    margin: 0.8rem 0;
 }
-
-/* ---------------- SIDEBAR ---------------- */
+/* ---------------- SIDEBAR BASE ---------------- */
 section[data-testid="stSidebar"] {
-    background: #f8fafc;
-    border-right: 1px solid #e5e7eb;
-    transition: background 0.3s ease;
+    background: linear-gradient(145deg, #2563eb, #0f172a);
+    border-right: 1px solid rgba(255,255,255,0.08);
+    z-index: 999;
+    top: 0;
+    left: 0;
+    height: 100%;
+    overflow-y: auto;
+
+    padding: 18px 14px;
+    backdrop-filter: blur(6px);
 }
 
+/* ---------------- GENERAL TEXT ---------------- */
 section[data-testid="stSidebar"] * {
-    font-size: 0.95rem;
+    font-size: 0.92rem;
+    color: rgba(255,255,255,0.85);
+}
+
+/* ---------------- HEADER ---------------- */
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3 {
+    color: white;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+/* ---------------- NAV RADIO (Streamlit) ---------------- */
+section[data-testid="stSidebar"] [role="radiogroup"] {
+    gap: 6px;
+}
+
+/* Cada opción */
+section[data-testid="stSidebar"] label {
+    background: transparent;
+    padding: 8px 12px;
+    border-radius: 10px;
+    display: block;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+/* Hover */
+section[data-testid="stSidebar"] label:hover {
+    background: rgba(255,255,255,0.08);
+}
+
+/* Selected */
+section[data-testid="stSidebar"] input[type="radio"]:checked + div {
+    background: rgba(255,255,255,0.15);
+    border-radius: 10px;
+    font-weight: 600;
+    color: white;
+}
+
+/* ---------------- BUTTONS ---------------- */
+section[data-testid="stSidebar"] button {
+    border-radius: 10px;
+    border: none;
+    background: rgba(255,255,255,0.12);
+    color: white;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+section[data-testid="stSidebar"] button:hover {
+    background: rgba(255,255,255,0.2);
+}
+
+/* ---------------- DIVIDER ---------------- */
+section[data-testid="stSidebar"] hr {
+    border: none;
+    height: 1px;
+    background: rgba(255,255,255,0.15);
+}
+
+/* ---------------- CAPTION / STATUS ---------------- */
+section[data-testid="stSidebar"] .stCaption {
+    color: rgba(255,255,255,0.6);
+    font-size: 0.78rem;
+}
+
+/* ---------------- SUCCESS / ERROR ---------------- */
+section[data-testid="stSidebar"] .stAlert {
+    border-radius: 10px;
+    font-size: 0.85rem;
+}
+
+/* ---------------- SCROLLBAR (BONUS PRO) ---------------- */
+section[data-testid="stSidebar"]::-webkit-scrollbar {
+    width: 6px;
+}
+
+section[data-testid="stSidebar"]::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.25);
+    border-radius: 10px;
+}
+/* Flecha/control nativo oculto */
+[data-testid="collapsedControl"],
+[data-testid="stSidebarCollapsedControl"],
+button[kind="header"] {
+    display: none !important;
+}
+
+/* ---------------- HEADER / WORKFLOW CARDS ---------------- */
+.uv-header {
+    padding: 0.8rem 1rem 0.75rem 1rem;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fbff 55%, #eef6ff 100%);
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+    margin-bottom: 0.7rem;
+}
+
+.uv-title {
+    font-size: 1.28rem;
+    font-weight: 750;
+    color: #0f172a;
+    margin-bottom: 0.1rem;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+}
+
+.uv-subtitle {
+    color: #64748b;
+    font-size: 0.88rem;
+    line-height: 1.4;
+}
+
+.uv-card {
+    background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+    border: 1px solid #e5e7eb;
+    border-radius: 18px;
+    padding: 0.9rem 1rem;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.045);
+}
+
+.uv-kpi {
+    min-height: 108px;
+    position: relative;
+    overflow: hidden;
+}
+
+.uv-kpi-line {
+    height: 4px;
+    width: 100%;
+    border-radius: 999px;
+    margin-bottom: 0.75rem;
+}
+
+.uv-kpi-title {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #64748b;
+    margin-bottom: 0.28rem;
+}
+
+.uv-kpi-value {
+    font-size: 1.35rem;
+    line-height: 1.12;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 0.12rem;
+}
+
+.uv-kpi-subtitle {
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+.uv-panel-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 0.4rem;
+}
+
+.uv-panel-subtitle {
+    font-size: 0.86rem;
+    color: #64748b;
+    margin-bottom: 0.7rem;
+}
+
+.uv-info {
+    border-left: 4px solid #2563eb;
+    background: #f8fbff;
+    padding: 0.82rem 0.95rem;
+    border-radius: 12px;
+    margin-bottom: 0.62rem;
+    color: #0f172a;
+    font-size: 0.91rem;
+}
+
+.uv-success {
+    border-left: 4px solid #16a34a;
+    background: #f6fdf8;
+    padding: 0.82rem 0.95rem;
+    border-radius: 12px;
+    margin-bottom: 0.62rem;
+    color: #0f172a;
+    font-size: 0.91rem;
+}
+
+.uv-warning {
+    border-left: 4px solid #f59e0b;
+    background: #fffaf0;
+    padding: 0.82rem 0.95rem;
+    border-radius: 12px;
+    margin-bottom: 0.62rem;
+    color: #0f172a;
+    font-size: 0.91rem;
+}
+
+.uv-danger {
+    border-left: 4px solid #dc2626;
+    background: #fff7f7;
+    padding: 0.82rem 0.95rem;
+    border-radius: 12px;
+    margin-bottom: 0.62rem;
+    color: #0f172a;
+    font-size: 0.91rem;
+}
+
+.uv-badge {
+    display: inline-block;
+    padding: 0.26rem 0.58rem;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    margin-top: 0.32rem;
+}
+
+.uv-meta-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.58rem;
 }
 
 /* ---------------- DARK MODE ---------------- */
@@ -222,29 +496,38 @@ body[data-theme="dark"] .stButton > button {
 /* ---------------- RESPONSIVE ---------------- */
 @media (max-width: 1024px) {
     .gradient-panel {
-        min-height: 420px;
-        padding: 32px 24px;
+        min-height: 390px;
+        padding: 26px 22px;
+    }
+
+    .gradient-title {
+        font-size: 1.7rem;
     }
 }
 
 @media (max-width: 768px) {
     .block-container {
+        padding-top: 0.6rem !important;
         padding-left: 16px !important;
         padding-right: 16px !important;
     }
 
     .gradient-panel {
-        min-height: 360px;
-        padding: 28px 20px;
+        min-height: 330px;
+        padding: 22px 18px;
         border-radius: 16px;
     }
 
     .gradient-title {
-        font-size: 1.9rem;
+        font-size: 1.55rem;
     }
 
     .gradient-subtitle {
-        font-size: 0.95rem;
+        font-size: 0.92rem;
+    }
+
+    .uv-title {
+        font-size: 1.08rem;
     }
 
     .stButton > button {
@@ -255,20 +538,36 @@ body[data-theme="dark"] .stButton > button {
     .stTextInput > div > div > input {
         padding: 12px 14px;
     }
+
+    section[data-testid="stSidebar"] {
+        width: 0;
+    }
+
+    section[data-testid="stSidebar"].open {
+        width: 240px;
+    }
 }
 
 @media (max-width: 480px) {
     .gradient-panel {
-        min-height: 300px;
-        padding: 20px 16px;
+        min-height: 290px;
+        padding: 18px 14px;
     }
 
     .gradient-title {
-        font-size: 1.6rem;
+        font-size: 1.38rem;
     }
 
     .gradient-subtitle {
-        font-size: 0.9rem;
+        font-size: 0.88rem;
+    }
+
+    .uv-header {
+        padding: 0.72rem 0.85rem;
+    }
+
+    .uv-title {
+        font-size: 1rem;
     }
 
     .stButton > button {
@@ -276,198 +575,286 @@ body[data-theme="dark"] .stButton > button {
         font-size: 13px !important;
     }
 }
-section[data-testid="stSidebar"] {
-    background: #f8fafc;
-    border-right: 1px solid #e5e7eb;
-    transition: all 0.35s ease;
-    width: 280px;
-    z-index: 99;
-    position: fixed;
-    top: 0;
-    left: 0;
-    height: 100%;
-    overflow-y: auto;
+
+.page-hero {
+    margin-bottom: 1.25rem;
+    padding: 1.2rem 1.3rem;
+    border-radius: 18px;
+    background: linear-gradient(180deg, #f8fbff 0%, #eef4fb 100%);
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
 }
 
-section[data-testid="stSidebar"].collapsed {
-    width: 0 !important;
+.page-hero-title {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #1e293b;
+    margin-bottom: 0.3rem;
+}
+
+.page-hero-subtitle {
+    font-size: 0.98rem;
+    color: #475569;
+    line-height: 1.6;
+    max-width: 900px;
+}
+
+.soft-info-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    color: #334155;
+    border-radius: 16px;
+    padding: 1rem 1.1rem;
+    margin-bottom: 1rem;
+    line-height: 1.6;
+}
+
+.empty-state-card {
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px dashed #cbd5e1;
+    border-radius: 18px;
+    padding: 1.4rem;
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.empty-state-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 0.4rem;
+}
+
+.empty-state-text {
+    color: #64748b;
+    font-size: 0.96rem;
+    line-height: 1.6;
+}
+
+.upload-hint-card {
+    background: linear-gradient(90deg, #eff6ff 0%, #f8fafc 100%);
+    border: 1px solid #dbeafe;
+    color: #334155;
+    border-radius: 14px;
+    padding: 0.95rem 1rem;
+    line-height: 1.6;
+    margin-top: 0.15rem;
+}
+
+.form-section-title {
+    font-size: 1.08rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 0.25rem;
+}
+
+.form-section-subtitle {
+    color: #64748b;
+    font-size: 0.93rem;
+    line-height: 1.55;
+    margin-bottom: 0.9rem;
+}
+div[data-testid="stForm"] {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    padding: 1rem 1rem 0.5rem 1rem;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+}
+
+div[data-testid="stTextInput"],
+div[data-testid="stNumberInput"],
+div[data-testid="stDateInput"],
+div[data-testid="stSelectbox"] {
+    margin-bottom: 0.65rem;
+}
+
+div[data-testid="stRadio"] {
+    margin-bottom: 0.9rem;
+}
+
+div[data-testid="stCheckbox"] {
+    margin-top: 0.25rem;
+    margin-bottom: 0.9rem;
+}
+
+.table-section-header {
+    margin-bottom: 0.9rem;
+}
+
+.table-section-title {
+    font-size: 1.08rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 0.2rem;
+}
+
+.table-section-subtitle {
+    color: #64748b;
+    font-size: 0.93rem;
+    line-height: 1.55;
+    margin-bottom: 0.45rem;
+}
+
+.table-card-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 0.2rem;
+}
+
+.table-card-subtitle {
+    color: #64748b;
+    font-size: 0.91rem;
+    line-height: 1.5;
+    margin-bottom: 0.9rem;
+}
+
+/* Hace que los bloques con border=True se vean como cards blancas */
+div[data-testid="stVerticalBlockBorderWrapper"] {
+    background: #ffffff;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 18px !important;
+    padding: 1rem 1rem 0.9rem 1rem !important;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+}
+
+/* Más aire entre controles */
+div[data-testid="stTextInput"],
+div[data-testid="stSelectbox"],
+div[data-testid="stSlider"],
+div[data-testid="stToggle"] {
+    margin-bottom: 0.55rem;
+}
+
+/* Data editor más limpio */
+div[data-testid="stDataEditor"] {
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+}
+
+/* Mini métricas */
+.table-mini-metric {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 0.8rem 0.9rem;
+    margin-top: 0.3rem;
+}
+
+.table-mini-metric-label {
+    font-size: 0.78rem;
+    color: #64748b;
+    margin-bottom: 0.2rem;
+}
+
+.table-mini-metric-value {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+div[data-testid="stDataEditor"] {
+    border-radius: 18px;
     overflow: hidden;
 }
 
-@media (max-width: 768px) {
-    section[data-testid="stSidebar"] {
-        width: 0;
-    }
-
-    section[data-testid="stSidebar"].open {
-        width: 240px;
-    }
+div[data-testid="stDataEditor"] [data-testid="stElementToolbar"] {
+    display: none;
 }
-.uv-header {
-        padding: 1.15rem 1.2rem 1rem 1.2rem;
-        border-radius: 20px;
-        background: linear-gradient(135deg, #ffffff 0%, #f8fbff 55%, #eef6ff 100%);
-        border: 1px solid #e5e7eb;
-        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
-        margin-bottom: 1rem;
-    }
-    .uv-title {
-        font-size: 1.55rem;
-        font-weight: 750;
-        color: #0f172a;
-        margin-bottom: 0.2rem;
-        letter-spacing: -0.02em;
-    }
-    .uv-subtitle {
-        color: #64748b;
-        font-size: 0.95rem;
-        line-height: 1.5;
-    }
-    .uv-card {
-        background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
-        border: 1px solid #e5e7eb;
-        border-radius: 18px;
-        padding: 0.9rem 1rem;
-        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.045);
-    }
-    .uv-kpi {
-        min-height: 112px;
-        position: relative;
-        overflow: hidden;
-    }
-    .uv-kpi-line {
-        height: 4px;
-        width: 100%;
-        border-radius: 999px;
-        margin-bottom: 0.75rem;
-    }
-    .uv-kpi-title {
-        font-size: 0.84rem;
-        font-weight: 600;
-        color: #64748b;
-        margin-bottom: 0.3rem;
-    }
-    .uv-kpi-value {
-        font-size: 1.45rem;
-        line-height: 1.15;
-        font-weight: 800;
-        color: #0f172a;
-        margin-bottom: 0.15rem;
-    }
-    .uv-kpi-subtitle {
-        font-size: 0.81rem;
-        color: #64748b;
-    }
-    .uv-panel-title {
-        font-size: 1.02rem;
-        font-weight: 700;
-        color: #0f172a;
-        margin-bottom: 0.45rem;
-    }
-    .uv-panel-subtitle {
-        font-size: 0.88rem;
-        color: #64748b;
-        margin-bottom: 0.75rem;
-    }
-    .uv-info {
-        border-left: 4px solid #2563eb;
-        background: #f8fbff;
-        padding: 0.85rem 1rem;
-        border-radius: 12px;
-        margin-bottom: 0.65rem;
-        color: #0f172a;
-        font-size: 0.93rem;
-    }
-    .uv-success {
-        border-left: 4px solid #16a34a;
-        background: #f6fdf8;
-        padding: 0.85rem 1rem;
-        border-radius: 12px;
-        margin-bottom: 0.65rem;
-        color: #0f172a;
-        font-size: 0.93rem;
-    }
-    .uv-warning {
-        border-left: 4px solid #f59e0b;
-        background: #fffaf0;
-        padding: 0.85rem 1rem;
-        border-radius: 12px;
-        margin-bottom: 0.65rem;
-        color: #0f172a;
-        font-size: 0.93rem;
-    }
-    .uv-danger {
-        border-left: 4px solid #dc2626;
-        background: #fff7f7;
-        padding: 0.85rem 1rem;
-        border-radius: 12px;
-        margin-bottom: 0.65rem;
-        color: #0f172a;
-        font-size: 0.93rem;
-    }
-    .uv-badge {
-        display: inline-block;
-        padding: 0.28rem 0.6rem;
-        border-radius: 999px;
-        font-size: 0.78rem;
-        font-weight: 700;
-        margin-top: 0.35rem;
-    }
-    .uv-meta-grid {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 0.6rem;
-    }
 
-   /* ================= SIDEBAR FIX FINAL ================= */
+details {
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 0.5rem 0.7rem;
+    margin-bottom: 0.6rem;
+    background: #ffffff;
+}
 
-/* Sidebar base */
-section[data-testid="stSidebar"] {
+summary {
+    font-weight: 600;
+    color: #1e293b;
+    font-size: 0.95rem;
+}
+
+details[open] {
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.05);
+}
+
+.white-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    padding: 1rem 1rem 0.9rem 1rem;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+}
+
+.table-section-header {
+    margin-bottom: 0.9rem;
+}
+
+.table-section-title {
+    font-size: 1.08rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 0.2rem;
+}
+
+.table-section-subtitle {
+    color: #64748b;
+    font-size: 0.93rem;
+    line-height: 1.55;
+    margin-bottom: 0.45rem;
+}
+
+.table-card-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 0.2rem;
+}
+
+.table-card-subtitle {
+    color: #64748b;
+    font-size: 0.91rem;
+    line-height: 1.5;
+    margin-bottom: 0.9rem;
+}
+
+.table-mini-metric {
     background: #f8fafc;
-    border-right: 1px solid #e5e7eb;
-    transition: all 0.35s ease;
-    width: 280px;
-    z-index: 999;
-    position: fixed;
-    top: 0;
-    left: 0;
-    height: 100%;
-    overflow-y: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 0.8rem 0.9rem;
+    margin-top: 0.3rem;
 }
 
-/* Sidebar oculto */
-section[data-testid="stSidebar"].collapsed {
-    width: 0 !important;
-    min-width: 0 !important;
-    overflow: hidden !important;
-    padding: 0 !important;
-    border: none !important;
+.table-mini-metric-label {
+    font-size: 0.78rem;
+    color: #64748b;
+    margin-bottom: 0.2rem;
 }
 
-/* 🔥 CLAVE: eliminar flecha de Streamlit */
-[data-testid="collapsedControl"],
-[data-testid="stSidebarCollapsedControl"],
-button[kind="header"] {
-    display: none !important;
+.table-mini-metric-value {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #1e293b;
 }
 
-/* Evitar restos visibles */
-section[data-testid="stSidebar"] * {
-    transition: opacity 0.2s ease;
+div[data-testid="stTextInput"],
+div[data-testid="stSelectbox"],
+div[data-testid="stSlider"],
+div[data-testid="stToggle"] {
+    margin-bottom: 0.55rem;
 }
 
-section[data-testid="stSidebar"].collapsed * {
-    opacity: 0;
-    pointer-events: none;
+div[data-testid="stDataEditor"] {
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
 }
 
-/* Mobile behavior limpio */
-@media (max-width: 768px) {
-    section[data-testid="stSidebar"] {
-        width: 0;
-    }
-
-    section[data-testid="stSidebar"].open {
-        width: 240px;
-    }
+.card-scope div[data-testid="stVerticalBlockBorderWrapper"] {
+    background: #ffffff !important;
 }

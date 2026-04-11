@@ -10,10 +10,7 @@ def render_add_row_form():
     meta = st.session_state.get("dataset_meta", {}) or {}
     options_map = meta.get("options", {}) or {}
 
-    st.markdown("### Add New Rows")
-    if "add_row_expanded" not in st.session_state:
-        st.session_state.add_row_expanded = False
-
+    # ---------- NORMALIZE META ----------
     def normalize_field_meta(field_meta):
         if isinstance(field_meta, list) and field_meta:
             field_meta = field_meta[0]
@@ -27,70 +24,60 @@ def render_add_row_form():
             "options": field_meta.get("options", []),
         }
 
+    # ---------- DEFAULT VALUES ----------
     def default_value_for_type(field_type, field_options):
         if field_type == "number":
             return 0.0
-        elif field_type == "checkbox":
-            return False
-        elif field_type == "radio":
-            return field_options[0] if field_options else "Option 1"
-        elif field_type == "select":
-            return ""
-        elif field_type == "date":
-            return date.today()
-        else:
-            return ""
-
-    def coerce_value(field_type, value, field_options):
         if field_type == "checkbox":
-            return bool(value) if isinstance(value, bool) else False
-
-        if field_type == "number":
-            try:
-                return float(value)
-            except (TypeError, ValueError):
-                return 0.0
-
-        if field_type == "date":
-            return value if isinstance(value, date) else date.today()
-
+            return False
         if field_type == "radio":
-            valid_options = field_options if field_options else ["Option 1", "Option 2"]
-            return value if value in valid_options else valid_options[0]
-
+            return field_options[0] if field_options else "Option 1"
         if field_type == "select":
-            return value if isinstance(value, str) else ""
+            return ""
+        if field_type == "date":
+            return date.today()
+        return ""
 
-        return value if isinstance(value, str) else ""
-
-    def init_field_value(col_name, field_type, field_options):
-        key = f"add__{col_name}"
-
-        if key not in st.session_state:
-            st.session_state[key] = default_value_for_type(field_type, field_options)
-        else:
-            st.session_state[key] = coerce_value(
-                field_type,
-                st.session_state[key],
-                field_options
+    # ---------- INIT ----------
+    def init_form_values():
+        for c in current_df.columns:
+            field_meta = normalize_field_meta(
+                options_map.get(str(c).strip(), {"type": "text", "options": []})
             )
+            key = f"add__{c}"
 
+            if key not in st.session_state:
+                st.session_state[key] = default_value_for_type(
+                    field_meta["type"], field_meta["options"]
+                )
+
+    # ---------- RESET SAFE ----------
     def reset_form_values():
         for c in current_df.columns:
-            field_meta = normalize_field_meta(options_map.get(str(c).strip(), {"type": "text", "options": []}))
-            field_type = field_meta.get("type", "text")
-            field_options = field_meta.get("options", [])
-            st.session_state[f"add__{c}"] = default_value_for_type(field_type, field_options)
+            field_meta = normalize_field_meta(
+                options_map.get(str(c).strip(), {"type": "text", "options": []})
+            )
+            st.session_state[f"add__{c}"] = default_value_for_type(
+                field_meta["type"], field_meta["options"]
+            )
 
+    if st.session_state.get("reset_add_row_form", False):
+        reset_form_values()
+        st.session_state.reset_add_row_form = False
+
+    init_form_values()
+
+    # ---------- ADD ROW ----------
     def add_row_now():
         new_row = {}
 
         for c in current_df.columns:
-            field_meta = normalize_field_meta(options_map.get(str(c).strip(), {"type": "text", "options": []}))
-            field_type = field_meta.get("type", "text")
+            field_meta = normalize_field_meta(
+                options_map.get(str(c).strip(), {"type": "text", "options": []})
+            )
             value = st.session_state.get(f"add__{c}", "")
 
-            if field_type == "date" and value not in ("", None):
+            if field_meta["type"] == "date" and value not in ("", None):
                 value = str(value)
 
             new_row[c] = value
@@ -101,70 +88,127 @@ def render_add_row_form():
         )
 
         rows = st.session_state.df.fillna("").to_dict(orient="records")
-        r = update_dataset(st.session_state.dataset_id, rows)
+        response = update_dataset(st.session_state.dataset_id, rows)
 
-        if not r.ok:
-            show_http_error(r)
-            st.session_state.add_row_expanded = True
+        if not response.ok:
+            show_http_error(response)
             return
 
-        reset_form_values()
-        st.session_state.add_row_expanded = True
+        st.session_state.add_row_success = "Row added successfully."
+        st.session_state.reset_add_row_form = True
         st.rerun()
 
-    st.markdown("➕ Añadir observación")
-    st.caption("HINT: Use tab to go to the following field.")
+    # ---------- GROUP BY TYPE ----------
+    def split_columns_by_type(columns, options_map):
+        groups = {
+            "Text fields": [],
+            "Numeric fields": [],
+            "Select fields": [],
+            "Radio options": [],
+            "Checkbox fields": [],
+            "Date fields": [],
+        }
 
-    col_left, col_right = st.columns(2)
-    columns = list(current_df.columns)
+        for c in columns:
+            meta = options_map.get(str(c).strip(), {"type": "text", "options": []})
 
-    for i, c in enumerate(columns):
-        target_col = col_left if i % 2 == 0 else col_right
+            if isinstance(meta, list) and meta:
+                meta = meta[0]
 
-        with target_col:
-            field_meta = normalize_field_meta(options_map.get(str(c).strip(), {"type": "text", "options": []}))
-            field_type = field_meta.get("type", "text")
-            field_options = field_meta.get("options", [])
+            field_type = meta.get("type", "text")
 
-            init_field_value(c, field_type, field_options)
-
-            if field_type == "text":
-                st.text_input(c, key=f"add__{c}", placeholder=f"Enter {c}")
-
-            elif field_type == "number":
-                st.number_input(
-                    c,
-                    key=f"add__{c}",
-                    step=1.0 if "id" in str(c).lower() or "count" in str(c).lower() else 0.1
-                )
-
-            elif field_type == "date":
-                st.date_input(c, key=f"add__{c}")
-
-            elif field_type == "radio":
-                st.radio(
-                    c,
-                    field_options if field_options else ["Option 1", "Option 2"],
-                    key=f"add__{c}"
-                )
-
-            elif field_type == "checkbox":
-                st.checkbox(c, key=f"add__{c}")
-
+            if field_type == "number":
+                groups["Numeric fields"].append(c)
             elif field_type == "select":
-                st.selectbox(
-                    c,
-                    [""] + field_options,
-                    key=f"add__{c}"
-                )
-
+                groups["Select fields"].append(c)
+            elif field_type == "radio":
+                groups["Radio options"].append(c)
+            elif field_type == "checkbox":
+                groups["Checkbox fields"].append(c)
+            elif field_type == "date":
+                groups["Date fields"].append(c)
             else:
-                st.text_input(c, key=f"add__{c}", placeholder=f"Enter {c}")
+                groups["Text fields"].append(c)
 
-    st.divider()
-    st.button(
-        "Guardar nueva fila",
-        key="btn_add_row",
-        use_container_width=True,
-        on_click=add_row_now
-    )
+        return {k: v for k, v in groups.items() if v}
+
+    # ---------- UI ----------
+    st.markdown("### Add New Record")
+    st.caption("Fill the form below to insert a new row into the dataset.")
+
+    if st.session_state.get("add_row_success"):
+        st.success(st.session_state["add_row_success"])
+        del st.session_state["add_row_success"]
+
+    cols = list(current_df.columns)
+    groups = split_columns_by_type(cols,options_map)
+
+    with st.form("add_row_form", clear_on_submit=False):
+
+        groups = split_columns_by_type(cols, options_map)
+
+        for section, section_cols in groups.items():
+
+            with st.expander(section, expanded=True):
+
+                # 🧠 UX hints (lo que pediste)
+                if section == "Radio options":
+                    st.caption("Use keyboard arrows ← → to select options")
+
+                if section == "Checkbox fields":
+                    st.caption("Press SPACE to toggle selection")
+
+                col1, col2 = st.columns(2, gap="large")
+
+                for i, c in enumerate(section_cols):
+                    target = col1 if i % 2 == 0 else col2
+
+                    with target:
+                        field_meta = normalize_field_meta(
+                            options_map.get(str(c).strip(), {"type": "text", "options": []})
+                        )
+
+                        field_type = field_meta["type"]
+                        field_options = field_meta["options"]
+                        label = str(c).replace("_", " ").strip().title()
+
+                        if field_type == "text":
+                            st.text_input(label, key=f"add__{c}")
+
+                        elif field_type == "number":
+                            st.number_input(label, key=f"add__{c}", width="stretch")
+
+                        elif field_type == "date":
+                            st.date_input(label, key=f"add__{c}", width="stretch")
+
+                        elif field_type == "radio":
+                            st.radio(
+                                label,
+                                field_options if field_options else ["Option 1", "Option 2"],
+                                key=f"add__{c}",
+                                horizontal=True
+                            )
+
+                        elif field_type == "checkbox":
+                            st.checkbox(label, key=f"add__{c}")
+
+                        elif field_type == "select":
+                            st.selectbox(
+                                label,
+                                [""] + field_options,
+                                key=f"add__{c}",
+                                width="stretch"
+                            )
+
+        # ---------- ACTIONS ----------
+        a, b = st.columns([2, 1])
+
+        submitted = a.form_submit_button("Add Row", width="stretch")
+        reset_clicked = b.form_submit_button("Reset Form", width="stretch")
+
+        if submitted:
+            add_row_now()
+
+        if reset_clicked:
+            st.session_state.reset_add_row_form = True
+            st.rerun()
