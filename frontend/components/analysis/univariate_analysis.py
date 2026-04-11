@@ -1,12 +1,10 @@
 import pandas as pd
 import streamlit as st
-from services.stat_service import (
-    detect_is_numeric,
-    describe_numeric,
-    describe_categorical,
-)
+from services.stat_service import detect_is_numeric
 import plotly.express as px
 import numpy as np
+def _safe_pct(num: float, den: float) -> float:
+    return round((num / den) * 100, 2) if den else 0.0
 
 def _render_stat_card(title: str, value: str, subtitle: str = "", accent: str = "#2563eb"):
     st.markdown(
@@ -558,8 +556,6 @@ def _quality_badge_from_missing(missing_pct: float) -> tuple[str, str]:
         return "Needs review", "#f59e0b"
     return "High missingness", "#dc2626"
 
-def _safe_pct(num: float, den: float) -> float:
-    return round((num / den) * 100, 2) if den else 0.0
 
 def render_univariate_analysis(df: pd.DataFrame, cols_for_stats: list[str]):
 

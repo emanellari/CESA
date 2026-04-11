@@ -1,13 +1,14 @@
 import pandas as pd
 import streamlit as st
-from services.stat_service import (
-    detect_is_numeric,
-    describe_numeric,
-    describe_categorical,
-)
+from services.stat_service import  detect_is_numeric
 
+import numpy as np
+import plotly.express as px
+from scipy import stats
+import statsmodels.api as sm
 def _safe_pct(num: float, den: float) -> float:
     return round((num / den) * 100, 2) if den else 0.0
+
 
 def render_numeric_categorical(
     sa: pd.Series,
@@ -88,6 +89,67 @@ def render_numeric_categorical(
         title=f"{num_col} by {cat_col}"
     )
     st.plotly_chart(fig_box, use_container_width=True)
+
+def build_numeric_numeric_interpretation(
+    col_a: str,
+    col_b: str,
+    pearson_r: float,
+    pearson_p: float,
+    slope: float,
+    slope_ci_low: float,
+    slope_ci_high: float,
+    r_squared: float,
+    n: int) -> str:
+    abs_r = abs(pearson_r)
+
+    # Strength
+    if abs_r < 0.2:
+        strength = "very weak"
+    elif abs_r < 0.4:
+        strength = "weak"
+    elif abs_r < 0.6:
+        strength = "moderate"
+    elif abs_r < 0.8:
+        strength = "strong"
+    else:
+        strength = "very strong"
+
+    # Direction (handle r = 0 properly)
+    if pearson_r > 0:
+        direction = "positive"
+    elif pearson_r < 0:
+        direction = "negative"
+    else:
+        direction = "no"
+
+    # Significance
+    significance = (
+        "statistically significant"
+        if pearson_p < 0.05 else
+        "not statistically significant"
+    )
+
+    # Confidence interval interpretation
+    ci_text = (
+        "The slope confidence interval includes 0, so the linear effect should be interpreted cautiously."
+        if slope_ci_low <= 0 <= slope_ci_high else
+        "The slope confidence interval does not include 0, which supports a non-zero linear trend."
+    )
+
+    # Special case when no relationship
+    if direction == "no":
+        relation_text = f"No linear relationship was observed between {col_a} and {col_b}"
+    else:
+        relation_text = f"A {strength} {direction} linear relationship was observed between {col_a} and {col_b}"
+
+    return (
+        f"{relation_text} "
+        f"(Pearson r = {pearson_r:.3f}, p = {pearson_p:.4g}, n = {n}). "
+        f"The fitted regression suggests that a one-unit increase in {col_a} is associated with an average "
+        f"change of {slope:.3f} units in {col_b}. "
+        f"The model explains approximately {r_squared:.1%} of the variance in {col_b}. "
+        f"The result is {significance}. {ci_text}"
+    )
 
 def render_categorical_categorical(sa: pd.Series, sb: pd.Series, col_a: str, col_b: str):
     st.write("**Relationship type:** Categorical vs Categorical")
@@ -176,67 +238,6 @@ def render_categorical_categorical(sa: pd.Series, sb: pd.Series, col_a: str, col
     with st.expander("Expected Frequencies"):
         expected_df = pd.DataFrame(expected, index=ctab.index, columns=ctab.columns)
         st.dataframe(expected_df.round(3), use_container_width=True)
-
-def build_numeric_numeric_interpretation(
-    col_a: str,
-    col_b: str,
-    pearson_r: float,
-    pearson_p: float,
-    slope: float,
-    slope_ci_low: float,
-    slope_ci_high: float,
-    r_squared: float,
-    n: int) -> str:
-    abs_r = abs(pearson_r)
-
-    # Strength
-    if abs_r < 0.2:
-        strength = "very weak"
-    elif abs_r < 0.4:
-        strength = "weak"
-    elif abs_r < 0.6:
-        strength = "moderate"
-    elif abs_r < 0.8:
-        strength = "strong"
-    else:
-        strength = "very strong"
-
-    # Direction (handle r = 0 properly)
-    if pearson_r > 0:
-        direction = "positive"
-    elif pearson_r < 0:
-        direction = "negative"
-    else:
-        direction = "no"
-
-    # Significance
-    significance = (
-        "statistically significant"
-        if pearson_p < 0.05 else
-        "not statistically significant"
-    )
-
-    # Confidence interval interpretation
-    ci_text = (
-        "The slope confidence interval includes 0, so the linear effect should be interpreted cautiously."
-        if slope_ci_low <= 0 <= slope_ci_high else
-        "The slope confidence interval does not include 0, which supports a non-zero linear trend."
-    )
-
-    # Special case when no relationship
-    if direction == "no":
-        relation_text = f"No linear relationship was observed between {col_a} and {col_b}"
-    else:
-        relation_text = f"A {strength} {direction} linear relationship was observed between {col_a} and {col_b}"
-
-    return (
-        f"{relation_text} "
-        f"(Pearson r = {pearson_r:.3f}, p = {pearson_p:.4g}, n = {n}). "
-        f"The fitted regression suggests that a one-unit increase in {col_a} is associated with an average "
-        f"change of {slope:.3f} units in {col_b}. "
-        f"The model explains approximately {r_squared:.1%} of the variance in {col_b}. "
-        f"The result is {significance}. {ci_text}"
-    )
 
 def _build_bivariate_meta_df(
     col_a: str,
@@ -401,9 +402,6 @@ def _quality_badge_from_pair_validity(valid_pct: float) -> tuple[str, str]:
     if valid_pct >= 60:
         return "Moderate readiness", "#f59e0b"
     return "Low readiness", "#dc2626"
-
-def _safe_pct(num: float, den: float) -> float:
-    return round((num / den) * 100, 2) if den else 0.0
 
 def _ensure_bivariate_styles():
     st.markdown("""
@@ -584,62 +582,6 @@ def _build_suggested_tests_for_pair(final_mode: str) -> pd.DataFrame:
     }
     return pd.DataFrame(mapping.get(final_mode, []))
 
-def _build_suggested_tests_for_pair(final_mode: str) -> pd.DataFrame:
-    mapping = {
-        "Numeric vs Numeric": [
-            {
-                "Scenario": "Linear association",
-                "Suggested test / method": "Pearson correlation, scatter plot, trend line",
-                "Why": "Quantify linear relationship between two continuous variables"
-            },
-            {
-                "Scenario": "Monotonic non-linear association",
-                "Suggested test / method": "Spearman correlation",
-                "Why": "Useful when rank-order relation matters more than strict linearity"
-            },
-            {
-                "Scenario": "Predictive relationship",
-                "Suggested test / method": "Simple linear regression",
-                "Why": "Estimate the effect of one numeric variable on the other"
-            },
-        ],
-        "Categorical vs Categorical": [
-            {
-                "Scenario": "Association between categories",
-                "Suggested test / method": "Contingency table, chi-square test",
-                "Why": "Evaluate dependence between categorical variables"
-            },
-            {
-                "Scenario": "Strength of association",
-                "Suggested test / method": "Cramér's V",
-                "Why": "Measure the effect size of categorical association"
-            },
-            {
-                "Scenario": "Visual structure",
-                "Suggested test / method": "Stacked bar chart, normalized proportions",
-                "Why": "Reveal how categories distribute across groups"
-            },
-        ],
-        "Numeric vs Categorical": [
-            {
-                "Scenario": "Group comparison",
-                "Suggested test / method": "Boxplot, grouped summary statistics",
-                "Why": "Compare the numeric distribution across categories"
-            },
-            {
-                "Scenario": "Two groups only",
-                "Suggested test / method": "t-test",
-                "Why": "Test whether the group means differ significantly"
-            },
-            {
-                "Scenario": "Three or more groups",
-                "Suggested test / method": "ANOVA",
-                "Why": "Assess whether at least one group mean differs from the others"
-            },
-        ],
-    }
-    return pd.DataFrame(mapping.get(final_mode, []))
-
 def render_heatmap_table(ctab: pd.DataFrame, title: str):
     import plotly.express as px
 
@@ -745,28 +687,6 @@ def render_boxplot_by_category(temp: pd.DataFrame, cat_name: str, num_name: str)
     )
     st.plotly_chart(fig, use_container_width=True)
 
-def build_numeric_categorical_interpretation(
-    group_summary: pd.DataFrame,
-    num_col: str,
-    cat_col: str,
-    anova_p: float
-) -> str:
-    top_row = group_summary.iloc[0]
-    bottom_row = group_summary.iloc[-1]
-
-    base = (
-        f"The highest average {num_col} appears in {top_row[cat_col]} "
-        f"(mean = {top_row['mean']:.3f}), while the lowest appears in {bottom_row[cat_col]} "
-        f"(mean = {bottom_row['mean']:.3f}). "
-    )
-
-    if pd.notna(anova_p):
-        if anova_p < 0.05:
-            base += f"ANOVA suggests statistically significant mean differences across {cat_col} groups (p = {anova_p:.4g})."
-        else:
-            base += f"ANOVA does not suggest statistically significant mean differences across {cat_col} groups (p = {anova_p:.4g})."
-
-    return base
 
 def interpret_correlation(value):
     if pd.isna(value):
