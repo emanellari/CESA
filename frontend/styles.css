@@ -1,10 +1,4 @@
-/* ---------------- BASE ---------------- */
-header, footer, [data-testid="stToolbar"] {
-    visibility: hidden;
-    height: 0;
-    margin: 0;
-    padding: 0;
-}
+
 
 .stApp {
     font-family: "Segoe UI", sans-serif;
@@ -424,3 +418,56 @@ section[data-testid="stSidebar"].collapsed {
         grid-template-columns: 1fr;
         gap: 0.6rem;
     }
+
+   /* ================= SIDEBAR FIX FINAL ================= */
+
+/* Sidebar base */
+section[data-testid="stSidebar"] {
+    background: #f8fafc;
+    border-right: 1px solid #e5e7eb;
+    transition: all 0.35s ease;
+    width: 280px;
+    z-index: 999;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100%;
+    overflow-y: auto;
+}
+
+/* Sidebar oculto */
+section[data-testid="stSidebar"].collapsed {
+    width: 0 !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    border: none !important;
+}
+
+/* 🔥 CLAVE: eliminar flecha de Streamlit */
+[data-testid="collapsedControl"],
+[data-testid="stSidebarCollapsedControl"],
+button[kind="header"] {
+    display: none !important;
+}
+
+/* Evitar restos visibles */
+section[data-testid="stSidebar"] * {
+    transition: opacity 0.2s ease;
+}
+
+section[data-testid="stSidebar"].collapsed * {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Mobile behavior limpio */
+@media (max-width: 768px) {
+    section[data-testid="stSidebar"] {
+        width: 0;
+    }
+
+    section[data-testid="stSidebar"].open {
+        width: 240px;
+    }
+}
