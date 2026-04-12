@@ -5,8 +5,11 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 from services.stat_service import detect_is_numeric
+
+
 def _safe_pct(num: float, den: float) -> float:
     return round((num / den) * 100, 2) if den else 0.0
+
 
 def _quality_label(score: int) -> tuple[str, str]:
     if score >= 85:
@@ -16,6 +19,8 @@ def _quality_label(score: int) -> tuple[str, str]:
     if score >= 50:
         return "Moderate", "#f59e0b"
     return "Needs attention", "#dc2626"
+
+
 def _compute_quality_score(summary_df: pd.DataFrame) -> int:
     if summary_df.empty:
         return 0
@@ -33,6 +38,8 @@ def _compute_quality_score(summary_df: pd.DataFrame) -> int:
 
     score = int(round(100 - penalty))
     return max(0, min(100, score))
+
+
 def _correlation_strength_label(v: float) -> str:
     a = abs(v)
     if a >= 0.80:
@@ -44,6 +51,8 @@ def _correlation_strength_label(v: float) -> str:
     if a >= 0.20:
         return "Weak"
     return "Very weak"
+
+
 def _extract_top_correlations(corr: pd.DataFrame, top_n: int = 10) -> pd.DataFrame:
     if corr.empty or corr.shape[0] < 2:
         return pd.DataFrame(columns=[
@@ -79,6 +88,8 @@ def _extract_top_correlations(corr: pd.DataFrame, top_n: int = 10) -> pd.DataFra
         .reset_index(drop=True)
     )
     return out
+
+
 def _build_suggested_tests(summary_df: pd.DataFrame) -> pd.DataFrame:
     numeric_count = int((summary_df["Detected type"] == "Numeric").sum())
     categorical_count = int((summary_df["Detected type"] == "Categorical").sum())
@@ -121,52 +132,72 @@ def _build_suggested_tests(summary_df: pd.DataFrame) -> pd.DataFrame:
         })
 
     return pd.DataFrame(suggestions)
+
+
 def _to_csv_download_bytes(df: pd.DataFrame) -> bytes:
     return df.to_csv(index=False).encode("utf-8")
-def _render_kpi_card(title: str, value: str, subtitle: str = "", accent: str = "#2563eb"):
+
+
+def _render_kpi_card(
+    title: str,
+    value: str,
+    subtitle: str = "",
+    accent: str = "#2563eb",
+    icon: str = "•"
+):
     st.markdown(
         f"""
         <div class="gs-card kpi-card">
             <div class="kpi-top-line" style="background:{accent};"></div>
-            <div class="kpi-title">{title}</div>
+            <div class="kpi-header-row">
+                <div class="kpi-title">{title}</div>
+                <div class="kpi-icon" style="color:{accent};">{icon}</div>
+            </div>
             <div class="kpi-value">{value}</div>
             <div class="kpi-subtitle">{subtitle}</div>
         </div>
         """,
         unsafe_allow_html=True
     )
+
+
 def render_global_summary(df: pd.DataFrame, cols_for_stats: list[str]):
     st.markdown("""
     <style>
     .gs-header {
-        padding: 1.2rem 1.25rem 1rem 1.25rem;
-        border-radius: 20px;
+        padding: 1.35rem 1.35rem 1.1rem 1.35rem;
+        border-radius: 22px;
         background: linear-gradient(135deg, #ffffff 0%, #f8fbff 55%, #eef6ff 100%);
         border: 1px solid #e5e7eb;
-        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.055);
         margin-bottom: 1rem;
     }
     .gs-title {
-        font-size: 1.7rem;
-        font-weight: 750;
+        font-size: 1.9rem;
+        font-weight: 800;
         color: #0f172a;
         margin-bottom: 0.2rem;
-        letter-spacing: -0.02em;
+        letter-spacing: -0.03em;
     }
     .gs-subtitle {
         color: #64748b;
-        font-size: 0.96rem;
-        line-height: 1.5;
+        font-size: 0.95rem;
+        line-height: 1.55;
     }
     .gs-card {
         background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
         border: 1px solid #e5e7eb;
         border-radius: 18px;
-        padding: 0.9rem 1rem;
+        padding: 1rem 1rem;
         box-shadow: 0 8px 24px rgba(15, 23, 42, 0.045);
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+    .gs-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.07);
     }
     .kpi-card {
-        min-height: 120px;
+        min-height: 132px;
         position: relative;
         overflow: hidden;
     }
@@ -174,71 +205,89 @@ def render_global_summary(df: pd.DataFrame, cols_for_stats: list[str]):
         height: 4px;
         width: 100%;
         border-radius: 999px;
-        margin-bottom: 0.8rem;
+        margin-bottom: 0.9rem;
+    }
+    .kpi-header-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 0.25rem;
     }
     .kpi-title {
-        font-size: 0.86rem;
-        font-weight: 600;
+        font-size: 0.84rem;
+        font-weight: 700;
         color: #64748b;
-        margin-bottom: 0.35rem;
+        letter-spacing: 0.01em;
+    }
+    .kpi-icon {
+        font-size: 1rem;
+        font-weight: 700;
+        opacity: 0.95;
     }
     .kpi-value {
-        font-size: 1.7rem;
-        line-height: 1.15;
-        font-weight: 800;
+        font-size: 1.85rem;
+        line-height: 1.1;
+        font-weight: 850;
         color: #0f172a;
         margin-bottom: 0.2rem;
+        letter-spacing: -0.03em;
     }
     .kpi-subtitle {
         font-size: 0.82rem;
         color: #64748b;
     }
     .panel-title {
-        font-size: 1.02rem;
-        font-weight: 700;
+        font-size: 1.04rem;
+        font-weight: 750;
         color: #0f172a;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.35rem;
     }
     .panel-subtitle {
         font-size: 0.88rem;
         color: #64748b;
-        margin-bottom: 0.8rem;
+        margin-bottom: 0.85rem;
+        line-height: 1.45;
     }
     .insight-box {
         border-left: 4px solid #2563eb;
         background: #f8fbff;
-        padding: 0.85rem 1rem;
+        padding: 0.9rem 1rem;
         border-radius: 12px;
-        margin-bottom: 0.6rem;
+        margin-bottom: 0.7rem;
         color: #0f172a;
         font-size: 0.94rem;
+        line-height: 1.5;
     }
     .success-box {
         border-left: 4px solid #16a34a;
         background: #f6fdf8;
-        padding: 0.85rem 1rem;
+        padding: 0.9rem 1rem;
         border-radius: 12px;
-        margin-bottom: 0.6rem;
+        margin-bottom: 0.7rem;
         color: #0f172a;
         font-size: 0.94rem;
+        line-height: 1.5;
     }
     .warning-box {
         border-left: 4px solid #f59e0b;
         background: #fffaf0;
-        padding: 0.85rem 1rem;
+        padding: 0.9rem 1rem;
         border-radius: 12px;
-        margin-bottom: 0.6rem;
+        margin-bottom: 0.7rem;
         color: #0f172a;
         font-size: 0.94rem;
+        line-height: 1.5;
     }
     .danger-box {
         border-left: 4px solid #dc2626;
         background: #fff7f7;
-        padding: 0.85rem 1rem;
+        padding: 0.9rem 1rem;
         border-radius: 12px;
-        margin-bottom: 0.6rem;
+        margin-bottom: 0.7rem;
         color: #0f172a;
         font-size: 0.94rem;
+        line-height: 1.5;
     }
     .badge {
         display: inline-block;
@@ -247,6 +296,9 @@ def render_global_summary(df: pd.DataFrame, cols_for_stats: list[str]):
         font-size: 0.78rem;
         font-weight: 700;
         margin-top: 0.35rem;
+    }
+    .section-gap {
+        height: 0.6rem;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -303,6 +355,11 @@ def render_global_summary(df: pd.DataFrame, cols_for_stats: list[str]):
         })
 
     summary_df = pd.DataFrame(summary_rows)
+
+    summary_df["Risk"] = summary_df["Missing %"].apply(
+        lambda x: "High" if x >= 30 else "Medium" if x >= 10 else "Low"
+    )
+
     numeric_count = int((summary_df["Detected type"] == "Numeric").sum())
     categorical_count = int((summary_df["Detected type"] == "Categorical").sum())
 
@@ -310,25 +367,46 @@ def render_global_summary(df: pd.DataFrame, cols_for_stats: list[str]):
     quality_text, quality_color = _quality_label(quality_score)
 
     high_missing = summary_df[summary_df["Missing %"] >= 30].copy()
-    moderate_missing = summary_df[(summary_df["Missing %"] >= 10) & (summary_df["Missing %"] < 30)].copy()
+    moderate_missing = summary_df[
+        (summary_df["Missing %"] >= 10) & (summary_df["Missing %"] < 30)
+    ].copy()
     high_cardinality = summary_df[
         (summary_df["Detected type"] == "Categorical") & (summary_df["Unique"] > 20)
     ].copy()
 
+    if completeness == 100:
+        quick_insight = "Dataset is fully complete with no missing values."
+        quick_box = "success-box"
+    elif completeness > 90:
+        quick_insight = "Dataset is highly complete with only minor missingness."
+        quick_box = "insight-box"
+    else:
+        quick_insight = "Dataset has noticeable missing data that may impact analysis quality."
+        quick_box = "warning-box"
+
+    st.markdown(
+        f"""
+        <div class="{quick_box}">
+            <b>Quick insight:</b> {quick_insight}
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
     k1, k2, k3, k4, k5 = st.columns(5)
 
     with k1:
-        _render_kpi_card("Rows", f"{total_rows:,}", "Observations", "#2563eb")
+        _render_kpi_card("Rows", f"{total_rows:,}", "Observations", "#2563eb", "▦")
     with k2:
-        _render_kpi_card("Columns", f"{total_cols:,}", "Selected variables", "#0ea5e9")
+        _render_kpi_card("Columns", f"{total_cols:,}", "Selected variables", "#0ea5e9", "◫")
     with k3:
-        _render_kpi_card("Missing cells", f"{total_missing:,}", "Null / empty values", "#f59e0b")
+        _render_kpi_card("Missing cells", f"{total_missing:,}", "Null / empty values", "#f59e0b", "!")
     with k4:
-        _render_kpi_card("Completeness", f"{completeness}%", "Coverage across cells", "#16a34a")
+        _render_kpi_card("Completeness", f"{completeness}%", "Coverage across cells", "#16a34a", "✓")
     with k5:
-        _render_kpi_card("Quality score", f"{quality_score}/100", quality_text, quality_color)
+        _render_kpi_card("Quality score", f"{quality_score}/100", quality_text, quality_color, "★")
 
-    st.markdown("")
+    st.markdown('<div class="section-gap"></div>', unsafe_allow_html=True)
 
     tabs = st.tabs([
         "Overview",
@@ -338,15 +416,15 @@ def render_global_summary(df: pd.DataFrame, cols_for_stats: list[str]):
         "Suggested tests"
     ])
 
-    # =====================================================
-    # TAB 1 - OVERVIEW
-    # =====================================================
     with tabs[0]:
-        left, right = st.columns([1.8, 1])
+        left, right = st.columns([1.85, 1])
 
         with left:
             st.markdown('<div class="panel-title">Column summary</div>', unsafe_allow_html=True)
-            st.markdown('<div class="panel-subtitle">Detected variable type, completeness, and cardinality.</div>', unsafe_allow_html=True)
+            st.markdown(
+                '<div class="panel-subtitle">Detected variable type, completeness, missingness risk, and cardinality.</div>',
+                unsafe_allow_html=True
+            )
 
             st.dataframe(
                 summary_df,
@@ -364,6 +442,7 @@ def render_global_summary(df: pd.DataFrame, cols_for_stats: list[str]):
                         format="%.2f%%"
                     ),
                     "Unique": st.column_config.NumberColumn("Unique", format="%d"),
+                    "Risk": st.column_config.TextColumn("Risk", width="small"),
                 }
             )
 
@@ -371,13 +450,15 @@ def render_global_summary(df: pd.DataFrame, cols_for_stats: list[str]):
                 "Download summary CSV",
                 data=_to_csv_download_bytes(summary_df),
                 file_name="dataset_summary.csv",
-                mime="text/csv",
-                use_container_width=False
+                mime="text/csv"
             )
 
         with right:
             st.markdown('<div class="panel-title">Schema balance</div>', unsafe_allow_html=True)
-            st.markdown('<div class="panel-subtitle">Detected variable-type distribution.</div>', unsafe_allow_html=True)
+            st.markdown(
+                '<div class="panel-subtitle">Detected variable-type distribution.</div>',
+                unsafe_allow_html=True
+            )
 
             schema_df = pd.DataFrame({
                 "Type": ["Numeric", "Categorical"],
@@ -388,17 +469,29 @@ def render_global_summary(df: pd.DataFrame, cols_for_stats: list[str]):
                 schema_df,
                 names="Type",
                 values="Count",
-                hole=0.6
+                hole=0.62
             )
+            fig_schema.update_traces(textposition="inside", textinfo="percent+label")
             fig_schema.update_layout(
-                height=300,
-                margin=dict(l=10, r=10, t=10, b=10)
+                height=310,
+                margin=dict(l=10, r=10, t=10, b=10),
+                showlegend=True
             )
             st.plotly_chart(fig_schema, use_container_width=True)
 
+            dominant_type = "Numeric" if numeric_count > categorical_count else "Categorical"
             avg_missing = round(summary_df["Missing %"].mean(), 2)
             max_missing = round(summary_df["Missing %"].max(), 2)
             avg_unique = round(summary_df["Unique"].mean(), 2)
+
+            st.markdown(
+                f"""
+                <div class="insight-box">
+                    <b>Schema insight:</b> The dataset is dominated by <b>{dominant_type}</b> variables.
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
             st.markdown(
                 f"""
@@ -419,15 +512,15 @@ def render_global_summary(df: pd.DataFrame, cols_for_stats: list[str]):
                 unsafe_allow_html=True
             )
 
-    # =====================================================
-    # TAB 2 - MISSINGNESS
-    # =====================================================
     with tabs[1]:
-        left, right = st.columns([1.6, 1])
+        left, right = st.columns([1.65, 1])
 
         with left:
             st.markdown('<div class="panel-title">Missingness by column</div>', unsafe_allow_html=True)
-            st.markdown('<div class="panel-subtitle">Ranking of variables by missing-value percentage.</div>', unsafe_allow_html=True)
+            st.markdown(
+                '<div class="panel-subtitle">Ranking of variables by missing-value percentage.</div>',
+                unsafe_allow_html=True
+            )
 
             miss_plot_df = summary_df.sort_values("Missing %", ascending=False)
 
@@ -440,7 +533,7 @@ def render_global_summary(df: pd.DataFrame, cols_for_stats: list[str]):
             )
             fig_missing.update_traces(texttemplate="%{text:.2f}%", textposition="outside")
             fig_missing.update_layout(
-                height=max(320, 42 * len(miss_plot_df)),
+                height=max(340, 42 * len(miss_plot_df)),
                 margin=dict(l=10, r=10, t=10, b=10),
                 xaxis_title="Missing percentage",
                 yaxis_title=""
@@ -449,7 +542,10 @@ def render_global_summary(df: pd.DataFrame, cols_for_stats: list[str]):
 
         with right:
             st.markdown('<div class="panel-title">Data quality risks</div>', unsafe_allow_html=True)
-            st.markdown('<div class="panel-subtitle">Potential structural issues worth checking before analysis.</div>', unsafe_allow_html=True)
+            st.markdown(
+                '<div class="panel-subtitle">Potential structural issues worth checking before analysis.</div>',
+                unsafe_allow_html=True
+            )
 
             if high_missing.empty and moderate_missing.empty and high_cardinality.empty:
                 st.markdown(
@@ -513,16 +609,16 @@ def render_global_summary(df: pd.DataFrame, cols_for_stats: list[str]):
             )
             st.plotly_chart(fig_unique, use_container_width=True)
 
-    # =====================================================
-    # TAB 3 - CORRELATIONS
-    # =====================================================
     with tabs[2]:
         if len(numeric_cols_detected) >= 2:
             numeric_df = subset_df[numeric_cols_detected].apply(pd.to_numeric, errors="coerce")
             corr = numeric_df.corr(numeric_only=True)
 
             st.markdown('<div class="panel-title">Correlation matrix</div>', unsafe_allow_html=True)
-            st.markdown('<div class="panel-subtitle">Linear relationships among detected numeric variables.</div>', unsafe_allow_html=True)
+            st.markdown(
+                '<div class="panel-subtitle">Linear relationships among detected numeric variables.</div>',
+                unsafe_allow_html=True
+            )
 
             fig_corr = go.Figure(
                 data=go.Heatmap(
@@ -578,8 +674,9 @@ def render_global_summary(df: pd.DataFrame, cols_for_stats: list[str]):
                     st.markdown(
                         f"""
                         <div class="insight-box">
-                            <b>Strongest detected relationship</b><br>
-                            {strongest["Variable A"]} ↔ {strongest["Variable B"]}<br>
+                            <b>Key relationship detected</b><br>
+                            This is the strongest linear dependency in the dataset.<br><br>
+                            <b>{strongest["Variable A"]}</b> ↔ <b>{strongest["Variable B"]}</b><br>
                             Correlation = <b>{corr_val}</b> ({strength.lower()}, {direction})
                         </div>
                         """,
@@ -617,16 +714,15 @@ def render_global_summary(df: pd.DataFrame, cols_for_stats: list[str]):
 
             if "render_correlation_interpretation" in globals():
                 render_correlation_interpretation(corr)
-
         else:
             st.info("At least two numeric columns are required to compute correlations.")
 
-    # =====================================================
-    # TAB 4 - INSIGHTS
-    # =====================================================
     with tabs[3]:
         st.markdown('<div class="panel-title">Automatic interpretation</div>', unsafe_allow_html=True)
-        st.markdown('<div class="panel-subtitle">System-generated summary of dataset quality and analysis readiness.</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="panel-subtitle">System-generated summary of dataset quality and analysis readiness.</div>',
+            unsafe_allow_html=True
+        )
 
         insights = []
 
@@ -698,16 +794,38 @@ def render_global_summary(df: pd.DataFrame, cols_for_stats: list[str]):
         )
 
         for txt in insights:
-            st.markdown(f"""
-            <div class="insight-box">{txt}</div>
-            """, unsafe_allow_html=True)
+            st.markdown(
+                f"""
+                <div class="insight-box">{txt}</div>
+                """,
+                unsafe_allow_html=True
+            )
 
-    # =====================================================
-    # TAB 5 - SUGGESTED TESTS
-    # =====================================================
+        if quality_score >= 85:
+            recommendation = "Dataset is ready for modeling."
+            box_cls = "success-box"
+        elif quality_score >= 70:
+            recommendation = "Minor preprocessing is recommended before modeling."
+            box_cls = "warning-box"
+        else:
+            recommendation = "Significant preprocessing is required before reliable analysis."
+            box_cls = "danger-box"
+
+        st.markdown(
+            f"""
+            <div class="{box_cls}">
+                <b>Recommendation:</b> {recommendation}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
     with tabs[4]:
         st.markdown('<div class="panel-title">Suggested next analyses</div>', unsafe_allow_html=True)
-        st.markdown('<div class="panel-subtitle">Recommended statistical directions based on the detected dataset structure.</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="panel-subtitle">Recommended statistical directions based on the detected dataset structure.</div>',
+            unsafe_allow_html=True
+        )
 
         tests_df = _build_suggested_tests(summary_df)
 
@@ -743,6 +861,9 @@ def render_global_summary(df: pd.DataFrame, cols_for_stats: list[str]):
             workflow.append("4. Follow with pairwise trends, regression, or dimensionality reduction.")
 
         for step in workflow:
-            st.markdown(f"""
-            <div class="success-box">{step}</div>
-            """, unsafe_allow_html=True)
+            st.markdown(
+                f"""
+                <div class="success-box">{step}</div>
+                """,
+                unsafe_allow_html=True
+            )

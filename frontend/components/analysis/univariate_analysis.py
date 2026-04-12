@@ -6,6 +6,19 @@ import numpy as np
 def _safe_pct(num: float, den: float) -> float:
     return round((num / den) * 100, 2) if den else 0.0
 
+def _normalize_missing(s: pd.Series) -> pd.Series:
+    s_clean = s.astype(str).str.strip().str.lower()
+
+    return s_clean.replace(
+        {
+            "": np.nan,
+            "na": np.nan,
+            "n/a": np.nan,
+            "n.a": np.nan,
+            "null": np.nan,
+            "none": np.nan,
+        }
+    )
 def _render_stat_card(title: str, value: str, subtitle: str = "", accent: str = "#2563eb"):
     st.markdown(
         f"""
@@ -109,8 +122,8 @@ def _ensure_univariate_styles():
 
 def render_numeric_univariate(s: pd.Series, col_name: str):
     _ensure_univariate_styles()
-
-    s_num = pd.to_numeric(s, errors="coerce")
+    s_clean=_normalize_missing(s)
+    s_num = pd.to_numeric(s_clean, errors="coerce")
     valid = s_num.dropna()
 
     total_n = len(s)
@@ -336,7 +349,7 @@ def render_numeric_univariate(s: pd.Series, col_name: str):
 def render_categorical_univariate(s: pd.Series, col_name: str, top_n: int = 12):
     _ensure_univariate_styles()
 
-    s_cat = s.copy()
+    s_cat = _normalize_missing(s.copy())
     total_n = len(s_cat)
     missing_n = int(s_cat.isna().sum())
     missing_pct = _safe_pct(missing_n, total_n)
@@ -556,9 +569,134 @@ def _quality_badge_from_missing(missing_pct: float) -> tuple[str, str]:
         return "Needs review", "#f59e0b"
     return "High missingness", "#dc2626"
 
-
+def _ensure_uv_styles():
+    st.markdown("""
+    <style>
+    .uv-header {
+        padding: 1.15rem 1.25rem 1rem 1.25rem;
+        border-radius: 20px;
+        background: linear-gradient(135deg, #ffffff 0%, #f8fbff 55%, #eef6ff 100%);
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+        margin-bottom: 1rem;
+    }
+    .uv-title {
+        font-size: 1.45rem;
+        font-weight: 800;
+        color: #0f172a;
+        margin-bottom: 0.2rem;
+        letter-spacing: -0.02em;
+    }
+    .uv-subtitle {
+        color: #64748b;
+        font-size: 0.92rem;
+        line-height: 1.5;
+    }
+    .uv-card {
+        background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+        border: 1px solid #e5e7eb;
+        border-radius: 18px;
+        padding: 0.95rem 1rem;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.045);
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+    .uv-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.07);
+    }
+    .uv-kpi {
+        min-height: 118px;
+        position: relative;
+        overflow: hidden;
+    }
+    .uv-kpi-line {
+        height: 4px;
+        width: 100%;
+        border-radius: 999px;
+        margin-bottom: 0.75rem;
+    }
+    .uv-kpi-title {
+        font-size: 0.84rem;
+        font-weight: 700;
+        color: #64748b;
+        margin-bottom: 0.28rem;
+    }
+    .uv-kpi-value {
+        font-size: 1.48rem;
+        line-height: 1.1;
+        font-weight: 800;
+        color: #0f172a;
+        margin-bottom: 0.16rem;
+        letter-spacing: -0.02em;
+    }
+    .uv-kpi-subtitle {
+        font-size: 0.81rem;
+        color: #64748b;
+    }
+    .uv-panel-title {
+        font-size: 1.02rem;
+        font-weight: 750;
+        color: #0f172a;
+        margin-bottom: 0.4rem;
+    }
+    .uv-panel-subtitle {
+        font-size: 0.88rem;
+        color: #64748b;
+        margin-bottom: 0.8rem;
+        line-height: 1.45;
+    }
+    .uv-info {
+        border-left: 4px solid #2563eb;
+        background: #f8fbff;
+        padding: 0.85rem 1rem;
+        border-radius: 12px;
+        margin-bottom: 0.65rem;
+        color: #0f172a;
+        font-size: 0.93rem;
+        line-height: 1.5;
+    }
+    .uv-success {
+        border-left: 4px solid #16a34a;
+        background: #f6fdf8;
+        padding: 0.85rem 1rem;
+        border-radius: 12px;
+        margin-bottom: 0.65rem;
+        color: #0f172a;
+        font-size: 0.93rem;
+        line-height: 1.5;
+    }
+    .uv-warning {
+        border-left: 4px solid #f59e0b;
+        background: #fffaf0;
+        padding: 0.85rem 1rem;
+        border-radius: 12px;
+        margin-bottom: 0.65rem;
+        color: #0f172a;
+        font-size: 0.93rem;
+        line-height: 1.5;
+    }
+    .uv-danger {
+        border-left: 4px solid #dc2626;
+        background: #fff7f7;
+        padding: 0.85rem 1rem;
+        border-radius: 12px;
+        margin-bottom: 0.65rem;
+        color: #0f172a;
+        font-size: 0.93rem;
+        line-height: 1.5;
+    }
+    .uv-badge {
+        display: inline-block;
+        padding: 0.28rem 0.6rem;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        margin-top: 0.35rem;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 def render_univariate_analysis(df: pd.DataFrame, cols_for_stats: list[str]):
-
+    _ensure_uv_styles()
     st.markdown("""
     <div class="uv-header">
         <div class="uv-title">Single column analysis</div>
@@ -591,7 +729,7 @@ def render_univariate_analysis(df: pd.DataFrame, cols_for_stats: list[str]):
             key="chosen_col"
         )
 
-    s = df[chosen_col]
+    s =_normalize_missing( df[chosen_col])
     auto_is_num, s_num = detect_is_numeric(s)
 
     with top_right:

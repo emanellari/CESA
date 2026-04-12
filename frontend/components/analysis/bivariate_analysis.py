@@ -90,6 +90,29 @@ def render_numeric_categorical(
     )
     st.plotly_chart(fig_box, use_container_width=True)
 
+def build_numeric_categorical_interpretation(
+    group_summary: pd.DataFrame,
+    num_col: str,
+    cat_col: str,
+    anova_p: float
+) -> str:
+    top_row = group_summary.iloc[0]
+    bottom_row = group_summary.iloc[-1]
+
+    base = (
+        f"The highest average {num_col} appears in {top_row[cat_col]} "
+        f"(mean = {top_row['mean']:.3f}), while the lowest appears in {bottom_row[cat_col]} "
+        f"(mean = {bottom_row['mean']:.3f}). "
+    )
+
+    if pd.notna(anova_p):
+        if anova_p < 0.05:
+            base += f"ANOVA suggests statistically significant mean differences across {cat_col} groups (p = {anova_p:.4g})."
+        else:
+            base += f"ANOVA does not suggest statistically significant mean differences across {cat_col} groups (p = {anova_p:.4g})."
+
+    return base
+
 def build_numeric_numeric_interpretation(
     col_a: str,
     col_b: str,

@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import io
-
+import numpy as np
 from api.dataset_api import delete_dataset, upload_dataset
 from services.dataset_service import refresh_dataset_list, load_dataset_into_session
 from utils.ui_helpers import require_login, show_http_error
@@ -161,13 +161,121 @@ def detect_boolean_defaults(unique_values: list) -> tuple[str, str]:
         normalized_map[str(v).strip().lower()] = v
 
     known_pairs = [
+        # English
         ("true", "false"),
         ("yes", "no"),
         ("y", "n"),
         ("1", "0"),
+        ("t", "f"),
+
+        # Albanian
+        ("po", "jo"),
+
+        # Spanish
         ("si", "no"),
         ("sí", "no"),
         ("verdadero", "falso"),
+
+        # Italian
+        ("si", "no"),
+        ("vero", "falso"),
+
+        # French
+        ("oui", "non"),
+        ("vrai", "faux"),
+
+        # German
+        ("ja", "nein"),
+        ("wahr", "falsch"),
+
+        # Portuguese
+        ("sim", "nao"),
+        ("não", "sim"),
+        ("verdadeiro", "falso"),
+
+        # Turkish
+        ("evet", "hayir"),
+        ("hayır", "evet"),
+
+        # Dutch
+        ("ja", "nee"),
+        ("waar", "onwaar"),
+
+        # Swedish
+        ("ja", "nej"),
+        ("sant", "falskt"),
+
+        # Danish
+        ("ja", "nej"),
+        ("sand", "falsk"),
+
+        # Norwegian
+        ("ja", "nei"),
+        ("sann", "usann"),
+
+        # Finnish
+        ("kylla", "ei"),
+        ("kyllä", "ei"),
+        ("tosi", "epatosi"),
+        ("tosi", "epätosi"),
+
+        # Polish
+        ("tak", "nie"),
+        ("prawda", "falsz"),
+        ("prawda", "fałsz"),
+
+        # Czech / Slovak
+        ("ano", "ne"),
+        ("pravda", "nepravda"),
+
+        # Romanian
+        ("da", "nu"),
+        ("adevarat", "fals"),
+        ("adevărat", "fals"),
+
+        # Hungarian
+        ("igen", "nem"),
+        ("igaz", "hamis"),
+
+        # Russian
+        ("da", "net"),
+        ("pravda", "lozh"),
+        ("правда", "ложь"),
+        ("да", "нет"),
+
+        # Greek
+        ("nai", "oxi"),
+        ("ναι", "όχι"),
+        ("alithes", "psema"),
+        ("αληθες", "ψευδές"),
+
+        # Arabic
+        ("naam", "la"),
+        ("نعم", "لا"),
+        ("sahih", "khata"),
+        ("صحيح", "خطأ"),
+
+        # Hindi
+        ("haan", "nahin"),
+        ("सही", "गलत"),
+
+        # Chinese
+        ("shi", "fou"),
+        ("是", "否"),
+        ("dui", "cuo"),
+        ("对", "错"),
+
+        # Japanese
+        ("hai", "iie"),
+        ("はい", "いいえ"),
+        ("tadashii", "machigai"),
+        ("正しい", "間違い"),
+
+        # Korean
+        ("ne", "aniyo"),
+        ("네", "아니요"),
+        ("majda", "teullida"),
+        ("맞다", "틀리다"),
     ]
 
     for true_norm, false_norm in known_pairs:
@@ -206,13 +314,121 @@ def infer_column_type(series: pd.Series) -> str:
         return "text"
 
     boolean_pairs = [
-        {"true", "false"},
-        {"yes", "no"},
-        {"y", "n"},
-        {"1", "0"},
-        {"si", "no"},
-        {"sí", "no"},
-        {"verdadero", "falso"},
+        # English
+        ("true", "false"),
+        ("yes", "no"),
+        ("y", "n"),
+        ("1", "0"),
+        ("t", "f"),
+
+        # Albanian
+        ("po", "jo"),
+
+        # Spanish
+        ("si", "no"),
+        ("sí", "no"),
+        ("verdadero", "falso"),
+
+        # Italian
+        ("si", "no"),
+        ("vero", "falso"),
+
+        # French
+        ("oui", "non"),
+        ("vrai", "faux"),
+
+        # German
+        ("ja", "nein"),
+        ("wahr", "falsch"),
+
+        # Portuguese
+        ("sim", "nao"),
+        ("não", "sim"),
+        ("verdadeiro", "falso"),
+
+        # Turkish
+        ("evet", "hayir"),
+        ("hayır", "evet"),
+
+        # Dutch
+        ("ja", "nee"),
+        ("waar", "onwaar"),
+
+        # Swedish
+        ("ja", "nej"),
+        ("sant", "falskt"),
+
+        # Danish
+        ("ja", "nej"),
+        ("sand", "falsk"),
+
+        # Norwegian
+        ("ja", "nei"),
+        ("sann", "usann"),
+
+        # Finnish
+        ("kylla", "ei"),
+        ("kyllä", "ei"),
+        ("tosi", "epatosi"),
+        ("tosi", "epätosi"),
+
+        # Polish
+        ("tak", "nie"),
+        ("prawda", "falsz"),
+        ("prawda", "fałsz"),
+
+        # Czech / Slovak
+        ("ano", "ne"),
+        ("pravda", "nepravda"),
+
+        # Romanian
+        ("da", "nu"),
+        ("adevarat", "fals"),
+        ("adevărat", "fals"),
+
+        # Hungarian
+        ("igen", "nem"),
+        ("igaz", "hamis"),
+
+        # Russian
+        ("da", "net"),
+        ("pravda", "lozh"),
+        ("правда", "ложь"),
+        ("да", "нет"),
+
+        # Greek
+        ("nai", "oxi"),
+        ("ναι", "όχι"),
+        ("alithes", "psema"),
+        ("αληθες", "ψευδές"),
+
+        # Arabic
+        ("naam", "la"),
+        ("نعم", "لا"),
+        ("sahih", "khata"),
+        ("صحيح", "خطأ"),
+
+        # Hindi
+        ("haan", "nahin"),
+        ("सही", "गलत"),
+
+        # Chinese
+        ("shi", "fou"),
+        ("是", "否"),
+        ("dui", "cuo"),
+        ("对", "错"),
+
+        # Japanese
+        ("hai", "iie"),
+        ("はい", "いいえ"),
+        ("tadashii", "machigai"),
+        ("正しい", "間違い"),
+
+        # Korean
+        ("ne", "aniyo"),
+        ("네", "아니요"),
+        ("majda", "teullida"),
+        ("맞다", "틀리다"),
     ]
 
     unique_vals = set(s_str.unique())
@@ -325,9 +541,13 @@ def build_default_config(df: pd.DataFrame, profiles: dict) -> dict:
             final_type = "number"
             form_type = "number"
 
-        elif inferred == "categorical":
+        elif inferred == "categorical" and len(unique_values)>4:
             final_type = "categorical"
             form_type = "select"
+
+        elif inferred == "categorical" and len(unique_values)<=4:
+            final_type = "categorical"
+            form_type = "radio"
 
         else:
             final_type = "text"
@@ -392,7 +612,124 @@ def parse_replacements(replacements_list: list) -> dict:
 def apply_replacements(series: pd.Series, replacements: dict) -> pd.Series:
     return series.replace(replacements) if replacements else series
 
-def handle_nulls(df: pd.DataFrame, column_name: str, strategy: str, fill_value=None) -> pd.DataFrame:
+
+def _safe_eval_expression(expr: str, row: dict):
+    safe_locals = {}
+    for k, v in row.items():
+        if pd.isna(v):
+            safe_locals[k] = ""
+        else:
+            safe_locals[k] = v
+    return eval(expr, {"__builtins__": {}}, safe_locals)
+
+import re
+def _render_text_template(template: str, row: dict) -> str:
+    def replacer(match):
+        expr = match.group(1).strip()
+        try:
+            value = _safe_eval_expression(expr, row)
+            return "" if pd.isna(value) else str(value)
+        except Exception as e:
+            return f"[ERROR: {e}]"
+
+    return re.sub(r"\{(.*?)\}", replacer, template)
+
+def _apply_null_formula_text(df: pd.DataFrame, column_name: str, template: str) -> pd.DataFrame:
+    mask = df[column_name].isna()
+    if not mask.any():
+        print("No nulls found for", column_name)
+        return df
+
+    before = df.loc[mask, [column_name]].copy()
+
+    df.loc[mask, column_name] = df.loc[mask].apply(
+        lambda row: _render_text_template(template, row.to_dict()),
+        axis=1
+    )
+
+    after = df.loc[mask, [column_name]].copy()
+
+    print("---- APPLY_TEXT_FORMULA ----")
+    print("column:", column_name)
+    print("template:", template)
+    print("rows changed:", len(after))
+    print("before sample:")
+    print(before.head(5))
+    print("after sample:")
+    print(after.head(5))
+
+    return df
+
+def _apply_null_formula_numeric(df: pd.DataFrame, column_name: str, expr: str) -> pd.DataFrame:
+    mask = df[column_name].isna()
+    if not mask.any():
+        return df
+
+    def compute(row):
+        row_dict = row.to_dict()
+
+        def replacer(match):
+            inner = match.group(1).strip()
+            try:
+                value = _safe_eval_expression(inner, row_dict)
+                return str(value)
+            except Exception:
+                return "np.nan"
+
+        rendered = re.sub(r"\{(.*?)\}", replacer, expr)
+
+        try:
+            value = eval(rendered, {"__builtins__": {}, "np": np}, {})
+            return pd.to_numeric(value, errors="coerce")
+        except Exception:
+            return np.nan
+
+    df.loc[mask, column_name] = df.loc[mask].apply(compute, axis=1)
+    return df
+
+
+def _apply_null_formula_boolean(df: pd.DataFrame, column_name: str, expr: str) -> pd.DataFrame:
+    mask = df[column_name].isna()
+    if not mask.any():
+        return df
+
+    def compute(row):
+        row_dict = row.to_dict()
+
+        def replacer(match):
+            inner = match.group(1).strip()
+            try:
+                value = _safe_eval_expression(inner, row_dict)
+                return repr(value)
+            except Exception:
+                return "None"
+
+        rendered = re.sub(r"\{(.*?)\}", replacer, expr)
+
+        try:
+            return bool(eval(rendered, {"__builtins__": {}}, {}))
+        except Exception:
+            return np.nan
+
+    df.loc[mask, column_name] = df.loc[mask].apply(compute, axis=1)
+    return df
+
+
+def handle_nulls(
+    df: pd.DataFrame,
+    column_name: str,
+    strategy: str,
+    fill_value=None,
+    column_config: dict | None = None
+) -> pd.DataFrame:
+    df = df.copy()
+
+    print("---- HANDLE_NULLS ----")
+    print("column_name:", column_name)
+    print("strategy:", strategy)
+    print("fill_value:", fill_value)
+    print("column_config:", column_config)
+
     if strategy == "keep":
         return df
 
@@ -418,8 +755,26 @@ def handle_nulls(df: pd.DataFrame, column_name: str, strategy: str, fill_value=N
         df[column_name] = df[column_name].fillna(median_value)
         return df
 
-    return df
+    if strategy == "fill_formula_text":
+        print("ENTERED fill_formula_text")
+        if column_config:
+            template = column_config.get("null_formula_text", "")
+            print("template:", template)
+            print("BEFORE")
+            print(df[[column_name]].head(10))
+            if template:
+                mask = df[column_name].isna()
+                print("null_count:", int(mask.sum()))
+                df.loc[mask, column_name] = df.loc[mask].apply(
+                    lambda row: _render_text_template(template, row.to_dict()),
+                    axis=1
+                )
+                print("after handle_nulls sample:")
+                print(df[[column_name]].head(10))
 
+        return df
+
+    return df
 def convert_series_to_boolean(series: pd.Series, true_value: str, false_value: str, other_strategy: str = "null") -> pd.Series:
     true_value_norm = str(true_value).strip().lower()
     false_value_norm = str(false_value).strip().lower()
@@ -447,6 +802,79 @@ def convert_series_to_boolean(series: pd.Series, true_value: str, false_value: s
     return series.map(mapper)
 
 def apply_user_config(df: pd.DataFrame, config: dict) -> pd.DataFrame:
+    df = df.copy()
+
+    for col_name, col_cfg in config.items():
+        if col_name not in df.columns:
+            continue
+
+        # 1) Handle nulls first
+        df = handle_nulls(
+            df,
+            column_name=col_name,
+            strategy=col_cfg.get("null_strategy", "keep"),
+            fill_value=col_cfg.get("null_fill_value"),
+            column_config=col_cfg
+        )
+
+        # 2) Apply manual replacements if any
+        replacements = col_cfg.get("replacements", [])
+        if replacements:
+            replace_map = {}
+            for item in replacements:
+                old_value = item.get("old")
+                new_value = item.get("new")
+                if old_value is not None:
+                    replace_map[old_value] = new_value
+
+            if replace_map:
+                df[col_name] = df[col_name].replace(replace_map)
+
+        # 3) Type conversions
+        final_type = col_cfg.get("final_type", "text")
+
+        if final_type == "number":
+            df[col_name] = pd.to_numeric(df[col_name], errors="coerce")
+
+        elif final_type == "date":
+            df[col_name] = pd.to_datetime(df[col_name], errors="coerce")
+
+        elif final_type == "boolean":
+            true_value = col_cfg.get("true_value", "")
+            false_value = col_cfg.get("false_value", "")
+            other_strategy = col_cfg.get("other_values_strategy", "null")
+
+            def map_boolean(v):
+                if pd.isna(v):
+                    return pd.NA
+
+                if str(v) == str(true_value):
+                    return True
+                if str(v) == str(false_value):
+                    return False
+
+                if other_strategy == "true":
+                    return True
+                if other_strategy == "false":
+                    return False
+                if other_strategy == "drop":
+                    return "__DROP_ROW__"
+
+                return pd.NA
+
+            mapped = df[col_name].apply(map_boolean)
+
+            if other_strategy == "drop":
+                keep_mask = mapped != "__DROP_ROW__"
+                df = df[keep_mask].copy()
+                mapped = mapped[keep_mask]
+
+            df[col_name] = mapped.replace("__DROP_ROW__", pd.NA)
+
+        else:
+            df[col_name] = df[col_name].astype("string")
+
+    return df
     clean_df = df.copy()
     for col, cfg in config.items():
         visual_replacements = parse_replacements(cfg.get("replacements", []))
@@ -474,11 +902,11 @@ def apply_user_config(df: pd.DataFrame, config: dict) -> pd.DataFrame:
             clean_df[col] = pd.to_numeric(clean_df[col], errors="coerce")
 
         clean_df = handle_nulls(
-            clean_df,
-            col,
-            cfg.get("null_strategy", "keep"),
-            cfg.get("null_fill_value", "")
-        )
+            df,
+            column_name=col,
+            strategy=config[col].get("null_strategy", "keep"),
+            fill_value=config[col].get("null_fill_value"),
+            column_config=config[col])
 
     return clean_df
 
@@ -587,9 +1015,15 @@ def render_column_editor(col_name: str, profile: dict, config: dict):
             )
             config[col_name]["final_type"] = selected_type
 
-        if profile["unique_values"] and selected_type in ["categorical", "boolean"]:
+        if profile["unique_values"]:
             st.write("Detected values:")
             st.code(", ".join(str(x) for x in profile["unique_values"]))
+
+        all_other_cols = [c for c in config.keys() if c != col_name]
+        numeric_other_cols = [
+            c for c in config.keys()
+            if c != col_name and config[c].get("final_type") == "number"
+        ]
 
         # -------- NULL HANDLING FRIENDLY --------
         if selected_type == "categorical":
@@ -597,13 +1031,15 @@ def render_column_editor(col_name: str, profile: dict, config: dict):
                 "Keep empty values": "keep",
                 "Fill with most common value": "fill_mode",
                 "Fill with my own value": "fill",
+                "Fill using other columns + text": "fill_formula_text",
                 "Delete rows with empty values": "drop",
             }
 
             current_null_strategy = config[col_name].get("null_strategy", "keep")
             reverse_null_map = {v: k for k, v in null_label_to_value.items()}
             current_null_label = reverse_null_map.get(current_null_strategy, "Keep empty values")
-            if profile['null_count']!=0:
+
+            if profile["null_count"] != 0:
                 chosen_null_label = st.radio(
                     f"What should happen with empty values in {col_name}?",
                     list(null_label_to_value.keys()),
@@ -634,6 +1070,22 @@ def render_column_editor(col_name: str, profile: dict, config: dict):
                     key=f"fill_{col_name}"
                 )
 
+            elif config[col_name]["null_strategy"] == "fill_formula_text":
+                st.markdown("#### Build value from other columns")
+                config[col_name]["null_formula_cols"] = st.multiselect(
+                    f"Columns to use for {col_name}",
+                    all_other_cols,
+                    default=config[col_name].get("null_formula_cols", []),
+                    key=f"formula_cols_{col_name}"
+                )
+                config[col_name]["null_formula_text"] = st.text_input(
+                    f"Template for empty cells in {col_name}",
+                    value=config[col_name].get("null_formula_text", ""),
+                    key=f"formula_text_{col_name}",
+                    placeholder='{full_name.lower().replace(" ","")}@aol.com'
+                )
+                st.caption('Use expressions inside braces, for example: {full_name.lower().replace(" ","")}@aol.com')
+
             if not config[col_name]["use_auto_choices"]:
                 config[col_name]["manual_choices_text"] = st.text_area(
                     f"Write your own choices for {col_name} (one per line)",
@@ -648,13 +1100,15 @@ def render_column_editor(col_name: str, profile: dict, config: dict):
                 "Fill with mean": "fill_mean",
                 "Fill with median": "fill_median",
                 "Fill with my own value": "fill",
+                "Fill using numeric formula": "fill_formula_numeric",
                 "Delete rows with empty values": "drop",
             }
 
             current_null_strategy = config[col_name].get("null_strategy", "keep")
             reverse_null_map = {v: k for k, v in null_label_to_value.items()}
             current_null_label = reverse_null_map.get(current_null_strategy, "Keep empty values")
-            if profile['null_count'] != 0:
+
+            if profile["null_count"] != 0:
                 chosen_null_label = st.radio(
                     f"What should happen with empty values in {col_name}?",
                     list(null_label_to_value.keys()),
@@ -672,8 +1126,45 @@ def render_column_editor(col_name: str, profile: dict, config: dict):
                     key=f"fill_{col_name}"
                 )
 
+            elif config[col_name]["null_strategy"] == "fill_formula_numeric":
+                st.markdown("#### Build value from numeric columns")
+                config[col_name]["null_formula_cols"] = st.multiselect(
+                    f"Numeric columns to use for {col_name}",
+                    numeric_other_cols,
+                    default=config[col_name].get("null_formula_cols", []),
+                    key=f"formula_cols_{col_name}"
+                )
+                config[col_name]["null_formula_numeric"] = st.text_input(
+                    f"Formula for empty cells in {col_name}",
+                    value=config[col_name].get("null_formula_numeric", ""),
+                    key=f"formula_numeric_{col_name}",
+                    placeholder="({salary} + {bonus}) / 2"
+                )
+                st.caption("Use expressions with numeric columns inside braces, operators, and parentheses.")
+
         elif selected_type == "boolean":
             config[col_name]["form_type"] = "checkbox"
+
+            null_label_to_value = {
+                "Keep empty values": "keep",
+                "Fill with TRUE": "fill_true",
+                "Fill with FALSE": "fill_false",
+                "Fill using logical rule": "fill_formula_boolean",
+                "Delete rows with empty values": "drop",
+            }
+
+            current_null_strategy = config[col_name].get("null_strategy", "keep")
+            reverse_null_map = {v: k for k, v in null_label_to_value.items()}
+            current_null_label = reverse_null_map.get(current_null_strategy, "Keep empty values")
+
+            if profile["null_count"] != 0:
+                chosen_null_label = st.radio(
+                    f"What should happen with empty values in {col_name}?",
+                    list(null_label_to_value.keys()),
+                    key=f"null_radio_{col_name}",
+                    index=list(null_label_to_value.keys()).index(current_null_label)
+                )
+                config[col_name]["null_strategy"] = null_label_to_value[chosen_null_label]
 
             current_uniques = profile.get("unique_values", [])
             if current_uniques:
@@ -701,6 +1192,22 @@ def render_column_editor(col_name: str, profile: dict, config: dict):
                 value=config[col_name].get("false_value", ""),
                 key=f"false_{col_name}"
             )
+
+            if config[col_name]["null_strategy"] == "fill_formula_boolean":
+                st.markdown("#### Build boolean from other columns")
+                config[col_name]["null_formula_cols"] = st.multiselect(
+                    f"Columns to use for rule in {col_name}",
+                    all_other_cols,
+                    default=config[col_name].get("null_formula_cols", []),
+                    key=f"formula_cols_{col_name}"
+                )
+                config[col_name]["null_formula_boolean"] = st.text_input(
+                    f"Logical rule for empty cells in {col_name}",
+                    value=config[col_name].get("null_formula_boolean", ""),
+                    key=f"formula_boolean_{col_name}",
+                    placeholder="{age} >= 18 and {active} == True"
+                )
+                st.caption("Use boolean expressions with other columns inside braces.")
 
             config[col_name]["other_values_strategy"] = st.radio(
                 f"If other values appear in {col_name}:",
@@ -737,7 +1244,7 @@ def render_column_editor(col_name: str, profile: dict, config: dict):
             reverse_null_map = {v: k for k, v in null_label_to_value.items()}
             current_null_label = reverse_null_map.get(current_null_strategy, "Keep empty values")
 
-            if profile['null_count'] != 0:
+            if profile["null_count"] != 0:
                 chosen_null_label = st.radio(
                     f"What should happen with empty values in {col_name}?",
                     list(null_label_to_value.keys()),
@@ -760,6 +1267,7 @@ def render_column_editor(col_name: str, profile: dict, config: dict):
             null_label_to_value = {
                 "Keep empty values": "keep",
                 "Fill with my own value": "fill",
+                "Fill using other columns + text": "fill_formula_text",
                 "Delete rows with empty values": "drop",
             }
 
@@ -767,7 +1275,7 @@ def render_column_editor(col_name: str, profile: dict, config: dict):
             reverse_null_map = {v: k for k, v in null_label_to_value.items()}
             current_null_label = reverse_null_map.get(current_null_strategy, "Keep empty values")
 
-            if profile['null_count'] != 0:
+            if profile["null_count"] != 0:
                 chosen_null_label = st.radio(
                     f"What should happen with empty values in {col_name}?",
                     list(null_label_to_value.keys()),
@@ -783,9 +1291,24 @@ def render_column_editor(col_name: str, profile: dict, config: dict):
                     key=f"fill_{col_name}"
                 )
 
+            elif config[col_name]["null_strategy"] == "fill_formula_text":
+                st.markdown("#### Build value from other columns")
+                config[col_name]["null_formula_cols"] = st.multiselect(
+                    f"Columns to use for {col_name}",
+                    all_other_cols,
+                    default=config[col_name].get("null_formula_cols", []),
+                    key=f"formula_cols_{col_name}"
+                )
+                config[col_name]["null_formula_text"] = st.text_input(
+                    f"Template for empty cells in {col_name}",
+                    value=config[col_name].get("null_formula_text", ""),
+                    key=f"formula_text_{col_name}",
+                    placeholder='{full_name.lower().replace(" ","")}@aol.com'
+                )
+                st.caption('Use expressions inside braces, for example: {full_name.lower().replace(" ","")}@aol.com')
+
         with st.expander(f"Advanced options for {col_name}"):
             render_replacements_editor(col_name, profile, config)
-
 def detect_duplicate_columns(df: pd.DataFrame) -> list[tuple[str, str]]:
     duplicates = []
     cols = df.columns.tolist()
@@ -880,7 +1403,7 @@ def render_datasets_page():
                     response = load_dataset_into_session(selected_id)
 
                 if response.ok:
-                    st.session_state.page = PAGE_EDITOR
+                    st.session_state.page ="Editor + Analysis"
                     st.rerun()
                 else:
                     show_http_error(response)
@@ -908,10 +1431,6 @@ def render_datasets_page():
                 </div>
             </div>
         """, unsafe_allow_html=True)
-
-        if st.button("Create dataset from scratch", use_container_width=True, key="create_empty_btn"):
-            st.session_state.page = PAGE_CREATE_DATASET
-            st.rerun()
 
     st.divider()
 
@@ -1023,7 +1542,7 @@ def render_datasets_page():
                         st.session_state.generated_form_schema = form_options
 
                         st.success("Dataset uploaded successfully.")
-                        st.session_state.page = PAGE_EDITOR
+                        st.session_state.page = "Editor + Analysis"
                         st.rerun()
 
                     else:
