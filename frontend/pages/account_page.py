@@ -15,29 +15,33 @@ def render_account_page():
         unsafe_allow_html=True
     )
 
-    # Centered container (card style)
-    col1, col2, col3 = st.columns([1, 2, 1])
+    # Centered container (card layout)
+    _, center_col, _ = st.columns([1, 2, 1])
 
-    with col2:
+    with center_col:
+        # Card UI
         st.markdown(
             """
             <div style="
-                background-color: #f9f9f9;
-                padding: 25px;
-                border-radius: 12px;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+                background-color: #f9fafb;
+                padding: 28px;
+                border-radius: 14px;
+                box-shadow: 0 6px 18px rgba(0,0,0,0.06);
                 text-align: center;
+                border: 1px solid #e5e7eb;
             ">
-                <h3 style="margin-bottom: 10px;">Sesión activa</h3>
-                <p style="color: green; font-size: 18px;">✅ Conectado correctamente</p>
+                <h3 style="margin-bottom: 8px; color: #111827;">Active Session</h3>
+                <p style="color: #16a34a; font-size: 16px; margin: 0;">
+                    ✅ Successfully connected
+                </p>
             </div>
             """,
             unsafe_allow_html=True
         )
 
-        st.write("")  # spacing
+        st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
 
-        # Logout button with emphasis
-        if st.button("🔓 Cerrar sesión", use_container_width=True):
+        # Logout button
+        if st.button("🔓 Log out", use_container_width=True):
             clear_session_on_logout()
             st.rerun()

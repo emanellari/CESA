@@ -51,10 +51,11 @@ def parse_replacements(replacements_list: list) -> dict:
 def apply_replacements(series: pd.Series, replacements: dict) -> pd.Series:
     return series.replace(replacements) if replacements else series
 
-
-def get_mean_value(param):
-    pass
-
+def get_mean_value(series: pd.Series):
+    s = pd.to_numeric(series, errors="coerce").dropna()
+    if s.empty:
+        return 0
+    return float(s.mean())
 
 def handle_nulls(
     df: pd.DataFrame,
@@ -142,6 +143,41 @@ def convert_series_to_boolean(series: pd.Series, true_value: str, false_value: s
         return None
 
     return series.map(mapper)
+
+def get_numeric_outlier_info(series: pd.Series, multiplier: float = 1.5) -> dict:
+    s = pd.to_numeric(series, errors="coerce").dropna()
+
+    if s.empty:
+        return {
+            "count": 0,
+            "lower_bound": None,
+            "upper_bound": None,
+            "examples": [],
+        }
+
+    q1 = s.quantile(0.25)
+    q3 = s.quantile(0.75)
+    iqr = q3 - q1
+
+    if pd.isna(iqr) or iqr == 0:
+        return {
+            "count": 0,
+            "lower_bound": q1,
+            "upper_bound": q3,
+            "examples": [],
+        }
+
+    lower = q1 - multiplier * iqr
+    upper = q3 + multiplier * iqr
+
+    outliers = s[(s < lower) | (s > upper)]
+
+    return {
+        "count": int(outliers.shape[0]),
+        "lower_bound": float(lower),
+        "upper_bound": float(upper),
+        "examples": outliers.sort_values().tolist()[:10],
+    }
 
 def apply_user_config(df: pd.DataFrame, config: dict) -> pd.DataFrame:
     df = df.copy()
@@ -243,13 +279,14 @@ def apply_user_config(df: pd.DataFrame, config: dict) -> pd.DataFrame:
         if cfg.get("final_type") == "number":
             clean_df[col] = pd.to_numeric(clean_df[col], errors="coerce")
 
+
         clean_df = handle_nulls(
             df,
             column_name=col,
             strategy=config[col].get("null_strategy", "keep"),
             fill_value=config[col].get("null_fill_value"),
             column_config=config[col])
-
+        clean_df= handle_outliers(clean_df, col, col_config=config[col])
     return clean_df
 
 def detect_duplicate_columns(df: pd.DataFrame) -> list[tuple[str, str]]:
@@ -289,3 +326,50 @@ def read_uploaded_dataset(uploaded_file):
         return pd.read_csv(uploaded_file, sep="\t")
 
     raise ValueError("Unsupported file format")
+
+def handle_outliers(df: pd.DataFrame, column_name: str, col_config: dict) -> pd.DataFrame:
+    strategy = col_config.get("outlier_strategy", "none")
+    if strategy == "none":
+        return df
+
+    series = pd.to_numeric(df[column_name], errors="coerce")
+
+    if strategy in ["cap_iqr", "drop_iqr"]:
+        multiplier = float(col_config.get("outlier_iqr_multiplier", 1.5))
+        q1 = series.quantile(0.25)
+        q3 = series.quantile(0.75)
+        iqr = q3 - q1
+
+        if pd.isna(iqr) or iqr == 0:
+            return df
+
+        lower = q1 - multiplier * iqr
+        upper = q3 + multiplier * iqr
+
+        if strategy == "cap_iqr":
+            df[column_name] = series.clip(lower=lower, upper=upper)
+            return df
+
+        if strategy == "drop_iqr":
+            return df[(series.isna()) | ((series >= lower) & (series <= upper))]
+
+    if strategy in ["cap_zscore", "drop_zscore"]:
+        threshold = float(col_config.get("outlier_zscore_threshold", 3.0))
+        mean = series.mean()
+        std = series.std()
+
+        if pd.isna(std) or std == 0:
+            return df
+
+        zscores = (series - mean) / std
+
+        if strategy == "cap_zscore":
+            lower = mean - threshold * std
+            upper = mean + threshold * std
+            df[column_name] = series.clip(lower=lower, upper=upper)
+            return df
+
+        if strategy == "drop_zscore":
+            return df[(series.isna()) | (zscores.abs() <= threshold)]
+
+    return df

@@ -93,6 +93,9 @@ def build_default_config(df: pd.DataFrame, profiles: dict) -> dict:
             "other_values_strategy": "null",
             "manual_choices_text": "\n".join(str(v) for v in unique_values) if unique_values else "",
             "force_checkbox": False,
+            "outlier_strategy": "none",
+            "outlier_iqr_multiplier": 1.5,
+            "outlier_zscore_threshold": 3.0
         }
 
     return config

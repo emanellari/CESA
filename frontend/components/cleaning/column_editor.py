@@ -1,10 +1,12 @@
 import streamlit as st
+import pandas as pd
 
 from components.cleaning.replacement_editor import render_replacements_editor
-
 from services.cleaning.profiles import detect_boolean_defaults
+from services.cleaning.transforms import get_numeric_outlier_info
 
-def render_column_editor(col_name: str, profile: dict, config: dict):
+
+def render_column_editor(col_name: str, df: pd.DataFrame, profile: dict, config: dict):
     inferred = profile["inferred_type"]
     current_type = config[col_name]["final_type"]
 
@@ -83,7 +85,6 @@ def render_column_editor(col_name: str, profile: dict, config: dict):
             if c != col_name and config[c].get("final_type") == "number"
         ]
 
-        # -------- NULL HANDLING FRIENDLY --------
         if selected_type == "categorical":
             null_label_to_value = {
                 "Keep empty values": "keep",
@@ -199,6 +200,61 @@ def render_column_editor(col_name: str, profile: dict, config: dict):
                     placeholder="({salary} + {bonus}) / 2"
                 )
                 st.caption("Use expressions with numeric columns inside braces, operators, and parentheses.")
+
+            outlier_info = get_numeric_outlier_info(df[col_name])
+
+            if outlier_info["count"] > 0:
+                st.warning(
+                    f"Detected {outlier_info['count']} potential outliers "
+                    f"(outside {outlier_info['lower_bound']:.2f} to {outlier_info['upper_bound']:.2f})."
+                )
+
+                if outlier_info["examples"]:
+                    st.caption("Examples of extreme values:")
+                    st.code(", ".join(str(x) for x in outlier_info["examples"]))
+
+                st.markdown("#### Outlier handling")
+
+                outlier_ui_to_value = {
+                    "Do nothing": "none",
+                    "Cap using IQR": "cap_iqr",
+                    "Remove rows using IQR": "drop_iqr",
+                    "Cap using Z-score": "cap_zscore",
+                    "Remove rows using Z-score": "drop_zscore",
+                }
+
+                current_outlier_strategy = config[col_name].get("outlier_strategy", "none")
+                reverse_outlier_map = {v: k for k, v in outlier_ui_to_value.items()}
+                current_outlier_label = reverse_outlier_map.get(current_outlier_strategy, "Do nothing")
+
+                chosen_outlier_label = st.radio(
+                    f"What should happen with outliers in {col_name}?",
+                    list(outlier_ui_to_value.keys()),
+                    key=f"outlier_radio_{col_name}",
+                    index=list(outlier_ui_to_value.keys()).index(current_outlier_label)
+                )
+                config[col_name]["outlier_strategy"] = outlier_ui_to_value[chosen_outlier_label]
+
+                if config[col_name]["outlier_strategy"] in ["cap_iqr", "drop_iqr"]:
+                    config[col_name]["outlier_iqr_multiplier"] = st.number_input(
+                        f"IQR multiplier for {col_name}",
+                        min_value=0.5,
+                        value=float(config[col_name].get("outlier_iqr_multiplier", 1.5)),
+                        step=0.5,
+                        key=f"outlier_iqr_multiplier_{col_name}"
+                    )
+
+                elif config[col_name]["outlier_strategy"] in ["cap_zscore", "drop_zscore"]:
+                    config[col_name]["outlier_zscore_threshold"] = st.number_input(
+                        f"Z-score threshold for {col_name}",
+                        min_value=1.0,
+                        value=float(config[col_name].get("outlier_zscore_threshold", 3.0)),
+                        step=0.5,
+                        key=f"outlier_zscore_threshold_{col_name}"
+                    )
+            else:
+                st.success("No obvious outliers detected with the current IQR rule.")
+                config[col_name]["outlier_strategy"] = "none"
 
         elif selected_type == "boolean":
             config[col_name]["form_type"] = "checkbox"

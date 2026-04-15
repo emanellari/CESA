@@ -158,10 +158,11 @@ def render_datasets_page():
 
         with action_col1:
             if st.button("Upload and clean", use_container_width=True, key="go_to_cleaning_btn"):
-                st.session_state.upload_preview_df = df_uploaded.copy()
-                st.session_state.upload_profiles = profiles
-                st.session_state.upload_config = config
-                st.session_state.last_uploaded_name = uploaded.name
+                st.session_state.cleaning_df = df_uploaded.copy()
+                st.session_state.cleaning_profiles = profiles
+                st.session_state.cleaning_config = config
+                st.session_state.cleaning_dataset_name = uploaded.name
+
                 st.session_state.page = PAGE_Cleaning
                 st.rerun()
 
