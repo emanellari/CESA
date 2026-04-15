@@ -9,8 +9,9 @@ from pages.datasets_page import render_datasets_page
 from pages.editor_page import render_editor_page
 from pages.create_dataset_page import render_create_dataset_page
 from pages.account_page import render_account_page
+from pages.cleaning_page import render_cleaning_page
 
-from costants.navigation import PAGE_CREATE_DATASET,PAGE_DATASETS,PAGE_EDITOR,PAGE_ACCOUNT,PAGE_LOGIN
+from constants.navigation import PAGE_CREATE_DATASET,PAGE_DATASETS,PAGE_EDITOR,PAGE_ACCOUNT,PAGE_LOGIN, PAGE_Cleaning
 
 def get_api_status():
     try:
@@ -52,6 +53,7 @@ with st.sidebar:
     else:
         pages = [
             PAGE_DATASETS,
+            PAGE_Cleaning,
             PAGE_EDITOR,
             PAGE_ACCOUNT,
             PAGE_CREATE_DATASET,
@@ -78,6 +80,8 @@ page = st.session_state.page
 
 if page == PAGE_LOGIN:
     render_login_page()
+if page==PAGE_Cleaning:
+    render_cleaning_page()
 elif page == PAGE_DATASETS:
     render_datasets_page()
 elif page == PAGE_EDITOR:

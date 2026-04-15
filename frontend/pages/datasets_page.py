@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
 import io
-from costants.navigation import PAGE_CREATE_DATASET,PAGE_EDITOR
+
+from constants.navigation import PAGE_CREATE_DATASET, PAGE_EDITOR, PAGE_Cleaning
 from api.dataset_api import delete_dataset, upload_dataset
 from components.cleaning.column_editor import render_column_editor
 from services.cleaning.transforms import (
@@ -16,7 +17,6 @@ from services.cleaning.config_builder import (
 from services.cleaning.profiles import profile_dataset
 from services.dataset_service import refresh_dataset_list, load_dataset_into_session
 from utils.ui_helpers import require_login, show_http_error
-from utils.session import go
 
 def render_datasets_page():
     require_login()
@@ -31,7 +31,7 @@ def render_datasets_page():
         </div>
     """, unsafe_allow_html=True)
 
-    top_left, top_right = st.columns([4, 1])
+    _, top_right = st.columns([4, 1])
 
     with top_right:
         if st.button("Refresh", use_container_width=True):
@@ -74,7 +74,7 @@ def render_datasets_page():
                     response = load_dataset_into_session(selected_id)
 
                 if response.ok:
-                    st.session_state.page =PAGE_EDITOR
+                    st.session_state.page = PAGE_EDITOR
                     st.rerun()
                 else:
                     show_http_error(response)
@@ -90,8 +90,6 @@ def render_datasets_page():
                     st.rerun()
                 else:
                     show_http_error(response)
-
-
 
     else:
         st.markdown("""
@@ -156,46 +154,34 @@ def render_datasets_page():
         profiles = st.session_state.upload_profiles
         config = st.session_state.upload_config
 
-        st.markdown("## Column configuration")
-        st.caption("Review detected types, missing value handling, replacements, and form behavior.")
+        action_col1, action_col2 = st.columns(2)
 
-        for col in df_uploaded.columns:
-            render_column_editor(col, profiles[col], config)
+        with action_col1:
+            if st.button("Upload and clean", use_container_width=True, key="go_to_cleaning_btn"):
+                st.session_state.upload_preview_df = df_uploaded.copy()
+                st.session_state.upload_profiles = profiles
+                st.session_state.upload_config = config
+                st.session_state.last_uploaded_name = uploaded.name
+                st.session_state.page = PAGE_Cleaning
+                st.rerun()
 
-        preview_col, upload_col = st.columns(2)
-
-        with preview_col:
-            if st.button("Preview cleaned dataset", use_container_width=True, key="preview_cleaned_btn"):
+        with action_col2:
+            if st.button("Upload without cleaning", use_container_width=True, key="upload_raw_btn"):
                 try:
-                    clean_df = apply_user_config(df_uploaded, config)
-                    st.session_state.cleaned_upload_df = clean_df
-                    st.success("Cleaned dataset preview generated successfully.")
-                    st.dataframe(clean_df.head(20), use_container_width=True)
-
-                    form_options = generate_form_options_from_config(clean_df, config)
-                    st.markdown("### Generated form schema preview")
-                    st.json(form_options)
-
-                except Exception as e:
-                    st.error(f"Error while applying configuration: {e}")
-
-        with upload_col:
-            if st.button("Upload cleaned dataset", use_container_width=True, key="upload_cleaned_btn"):
-                try:
-                    clean_df = apply_user_config(df_uploaded, config)
-                    form_options = generate_form_options_from_config(clean_df, config)
+                    raw_df = df_uploaded.copy()
+                    form_options = generate_form_options_from_config(raw_df, config)
 
                     output = io.BytesIO()
                     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                        clean_df.to_excel(writer, index=False, sheet_name="Sheet1")
+                        raw_df.to_excel(writer, index=False, sheet_name="Sheet1")
                     output.seek(0)
                     output.name = uploaded.name
 
-                    with st.spinner("Uploading cleaned dataset..."):
+                    with st.spinner("Uploading dataset..."):
                         response = upload_dataset(
                             output,
                             options=form_options,
-                            columns=clean_df.columns.tolist()
+                            columns=raw_df.columns.tolist()
                         )
 
                     if response.ok:
@@ -203,19 +189,18 @@ def render_datasets_page():
 
                         st.session_state.dataset_id = payload.get("dataset_id")
                         st.session_state.dataset_name = payload.get("dataset_name", uploaded.name)
-                        st.session_state.df = clean_df.copy()
+                        st.session_state.df = raw_df.copy()
 
                         meta = payload.get("meta", {})
                         meta["options"] = form_options
-                        meta["columns"] = clean_df.columns.tolist()
+                        meta["columns"] = raw_df.columns.tolist()
 
                         st.session_state.dataset_meta = meta
                         st.session_state.generated_form_schema = form_options
 
                         st.success("Dataset uploaded successfully.")
-                        st.session_state.page = "Editor + Analysis"
+                        st.session_state.page = PAGE_EDITOR
                         st.rerun()
-
                     else:
                         show_http_error(response)
 

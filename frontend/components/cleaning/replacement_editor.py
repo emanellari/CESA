@@ -1,5 +1,4 @@
 import streamlit as st
-from typing import Any, Dict
 
 def render_replacements_editor(col_name: str, profile: dict, config: dict):
     st.markdown("### Value replacements")
