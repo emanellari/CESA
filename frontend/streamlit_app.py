@@ -10,13 +10,7 @@ from pages.editor_page import render_editor_page
 from pages.create_dataset_page import render_create_dataset_page
 from pages.account_page import render_account_page
 
-
-PAGE_LOGIN = "Login"
-PAGE_DATASETS = "Datasets"
-PAGE_EDITOR = "Editor + Analysis"
-PAGE_CREATE_DATASET = "Create Dataset"
-PAGE_ACCOUNT = "Account"
-
+from costants.navigation import PAGE_CREATE_DATASET,PAGE_DATASETS,PAGE_EDITOR,PAGE_ACCOUNT,PAGE_LOGIN
 
 def get_api_status():
     try:
