@@ -7,7 +7,7 @@ import plotly.express as px
 from scipy import stats
 import statsmodels.api as sm
 
-from helpers import build_prediction_formula
+from utils.ui_helpers import build_prediction_formula
 
 
 def _safe_pct(num: float, den: float) -> float:

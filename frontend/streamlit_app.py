@@ -38,8 +38,6 @@ PAGE_STATE_KEYS = {
     PAGE_DATASETS: [],
     PAGE_ACCOUNT: [],
 }
-
-# ===================== HELPERS =====================
 def clear_page_state(page):
     if page in PAGE_STATE_KEYS:
         for key in PAGE_STATE_KEYS[page]:
@@ -56,8 +54,6 @@ def scroll_to_top():
         """,
         unsafe_allow_html=True
     )
-
-
 def get_api_status():
     if "api_last_check" not in st.session_state:
         st.session_state.api_last_check = 0

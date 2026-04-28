@@ -6,7 +6,7 @@ import plotly.express as px
 from scipy import stats
 from services.stat_service import detect_is_numeric
 
-from helpers import build_prediction_formula
+from utils.ui_helpers import build_prediction_formula
 
 
 def render_chi_square_test_ui(df: pd.DataFrame, cols_for_stats: list[str]):

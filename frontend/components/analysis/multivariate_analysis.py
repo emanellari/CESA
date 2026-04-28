@@ -7,7 +7,7 @@ import statsmodels.api as sm
 
 from services.stat_service import detect_is_numeric
 
-from helpers import build_prediction_formula
+from utils.ui_helpers import build_prediction_formula
 
 
 def render_correlation_interpretation(corr: pd.DataFrame):
