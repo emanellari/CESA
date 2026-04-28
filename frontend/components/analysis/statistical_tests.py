@@ -5,6 +5,10 @@ import numpy as np
 import plotly.express as px
 from scipy import stats
 from services.stat_service import detect_is_numeric
+
+from helpers import build_prediction_formula
+
+
 def render_chi_square_test_ui(df: pd.DataFrame, cols_for_stats: list[str]):
     categorical_cols = [c for c in cols_for_stats if not detect_is_numeric(df[c])[0]]
 

@@ -1,9 +1,11 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import plotly.express as px
 
 from services.stat_service import detect_is_numeric
+
+from components.charts import render_three_scatter_by_group, render_bar
+
 def _safe_pct(num: float, den: float) -> float:
     return round((num / den) * 100, 2) if den else 0.0
 

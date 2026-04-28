@@ -63,15 +63,28 @@ def render_login_page():
         with tab_signup:
             signup_email = st.text_input("Email", key="su_email", placeholder="you@example.com")
             signup_password = st.text_input("Password", type="password", key="su_pwd")
+            signup_confirm_password = st.text_input("Confirm password", type="password", key="su_pwd_confirm")
 
             if st.button("Create account", width="stretch", key="signup_btn"):
-                if not signup_email.strip() or not signup_password.strip():
+                if not signup_email.strip() or not signup_password.strip() or not signup_confirm_password.strip():
                     st.warning("Please complete all fields.")
+                elif signup_password != signup_confirm_password:
+                    st.error("Passwords do not match.")
                 else:
                     with st.spinner("Creating account..."):
                         response = signup_user(signup_email, signup_password)
+
                         if response.ok:
-                            st.success("Account created successfully. You can now sign in.")
+                            # 🔥 LOGIN AUTOMÁTICO
+                            login_response = login_user(signup_email, signup_password)
+
+                            if login_response.ok:
+                                st.session_state.token = login_response.json().get("access_token")
+                                refresh_dataset_list()
+                                st.session_state.page = PAGE_DATASETS
+                                st.rerun()
+                            else:
+                                st.warning("Account created, but auto-login failed. Please sign in manually.")
                         else:
                             show_http_error(response)
 

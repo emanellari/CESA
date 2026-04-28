@@ -7,6 +7,9 @@ import statsmodels.api as sm
 
 from services.stat_service import detect_is_numeric
 
+from helpers import build_prediction_formula
+
+
 def render_correlation_interpretation(corr: pd.DataFrame):
     st.markdown("#### Correlation Interpretation")
 
@@ -96,10 +99,7 @@ def render_multivariate_analysis(df: pd.DataFrame, cols_for_stats: list[str]):
     st.markdown("### Multivariate Analysis")
 
     numeric_cols = []
-    for c in cols_for_stats:
-        is_num, _ = detect_is_numeric(df[c])
-        if is_num:
-            numeric_cols.append(c)
+    numeric_cols = df[cols_for_stats].select_dtypes(include=[np.number]).columns.tolist()
 
     if len(numeric_cols) < 2:
         st.warning("At least two numeric variables are required.")
@@ -164,11 +164,13 @@ def render_multivariate_analysis(df: pd.DataFrame, cols_for_stats: list[str]):
 
     with st.expander("Interpretation", expanded=True):
         st.write(build_multivariate_interpretation(target, predictors, model))
-
+        st.markdown("#### Prediction Formula")
+        st.code(build_prediction_formula(model))
     residual_df = pd.DataFrame({
         "Fitted": model.fittedvalues,
         "Residuals": model.resid
     })
+
 
     st.markdown("#### Residual Plot")
     fig = px.scatter(

@@ -6,6 +6,10 @@ import numpy as np
 import plotly.express as px
 from scipy import stats
 import statsmodels.api as sm
+
+from helpers import build_prediction_formula
+
+
 def _safe_pct(num: float, den: float) -> float:
     return round((num / den) * 100, 2) if den else 0.0
 
@@ -350,6 +354,8 @@ def render_numeric_numeric(sa: pd.Series, sb: pd.Series, col_a: str, col_b: str)
             r_squared=r_squared,
             n=n_after
         ))
+        st.markdown("#### Prediction Formula")
+        st.code(build_prediction_formula(model))
 
     st.markdown("#### Scatter Plot with Regression Line")
     fig = px.scatter(

@@ -7,6 +7,14 @@ def generate_form_options_from_config(df: pd.DataFrame, config: dict) -> dict:
     options = {}
 
     for col, cfg in config.items():
+        # Ignora configuración global como _drop_columns, _case_rules, etc.
+        if not isinstance(cfg, dict):
+            continue
+
+        # Si por alguna razón no es una columna real del dataframe, sáltala
+        if col not in df.columns:
+            continue
+
         final_type = cfg.get("final_type")
 
         if final_type == "number":
@@ -39,6 +47,7 @@ def generate_form_options_from_config(df: pd.DataFrame, config: dict) -> dict:
 
     return options
 
+
 def build_default_config(df: pd.DataFrame, profiles: dict) -> dict:
     config = {}
 
@@ -47,10 +56,9 @@ def build_default_config(df: pd.DataFrame, profiles: dict) -> dict:
         inferred = p["inferred_type"]
         unique_values = p.get("unique_values", [])
 
-        # defaults
-
         if inferred == "boolean_candidate":
-            pass
+            final_type = "categorical"
+            form_type = "radio"
 
         if inferred == "boolean":
             final_type = "boolean"
@@ -64,11 +72,11 @@ def build_default_config(df: pd.DataFrame, profiles: dict) -> dict:
             final_type = "number"
             form_type = "number"
 
-        elif inferred == "categorical" and len(unique_values)>4:
+        elif inferred == "categorical" and len(unique_values) > 4:
             final_type = "categorical"
             form_type = "select"
 
-        elif inferred == "categorical" and len(unique_values)<=4:
+        elif inferred == "categorical" and len(unique_values) <= 4:
             final_type = "categorical"
             form_type = "radio"
 
@@ -95,7 +103,93 @@ def build_default_config(df: pd.DataFrame, profiles: dict) -> dict:
             "force_checkbox": False,
             "outlier_strategy": "none",
             "outlier_iqr_multiplier": 1.5,
-            "outlier_zscore_threshold": 3.0
+            "outlier_zscore_threshold": 3.0,
+
+            # 🆕 FEATURES
+            "text_case": None,
+            "remove_special_chars": False,
+
+            "multi_hot_enabled": False,
+            "multi_hot_keywords": "",
+            "multi_hot_keep_original": True,
+
+            "split_enabled": False,
+            "split_delimiter": " ",
+            "split_new_cols": "",
         }
 
     return config
+
+
+
+def apply_config_transformations(df: pd.DataFrame, config: dict) -> pd.DataFrame:
+    df = df.copy()
+
+    for col, cfg in config.items():
+        if not isinstance(cfg, dict):
+            continue
+
+        if col not in df.columns:
+            continue
+
+        # =========================
+        # MULTI HOT (ARREGLADO)
+        # =========================
+        if cfg.get("multi_hot_enabled"):
+            raw = cfg.get("multi_hot_keywords", "")
+
+            keywords = [
+                k.strip().lower()
+                for k in raw.splitlines()
+                if k.strip()
+            ]
+
+            base = df[col].astype(str).str.lower()
+
+            for k in keywords:
+                df[k] = base.str.contains(
+                    k,
+                    na=False,
+                    regex=False
+                ).astype(int)
+
+            if not cfg.get("multi_hot_keep_original", True):
+                df = df.drop(columns=[col])
+
+        # =========================
+        # TEXT NORMALIZATION
+        # =========================
+        if cfg.get("text_case"):
+            if cfg["text_case"] == "lower":
+                df[col] = df[col].astype(str).str.lower()
+            elif cfg["text_case"] == "upper":
+                df[col] = df[col].astype(str).str.upper()
+            elif cfg["text_case"] == "title":
+                df[col] = df[col].astype(str).str.title()
+
+        if cfg.get("remove_special_chars"):
+            df[col] = df[col].astype(str).str.replace(
+                r"[^a-zA-Z0-9\s]",
+                "",
+                regex=True
+            )
+
+        # =========================
+        # SPLIT COLUMN
+        # =========================
+        if cfg.get("split_enabled"):
+            delimiter = cfg.get("split_delimiter", " ")
+            new_cols = [
+                c.strip()
+                for c in cfg.get("split_new_cols", "").split(",")
+                if c.strip()
+            ]
+
+            if new_cols:
+                split_df = df[col].astype(str).str.split(delimiter, expand=True)
+
+                for i, new_col in enumerate(new_cols):
+                    if i < split_df.shape[1]:
+                        df[new_col] = split_df[i]
+
+    return df

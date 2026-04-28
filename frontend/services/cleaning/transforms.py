@@ -183,7 +183,7 @@ def apply_user_config(df: pd.DataFrame, config: dict) -> pd.DataFrame:
     df = df.copy()
 
     for col_name, col_cfg in config.items():
-        if col_name not in df.columns:
+        if not isinstance(col_cfg, dict):
             continue
 
         # 1) Handle nulls first

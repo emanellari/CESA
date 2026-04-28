@@ -345,7 +345,7 @@ def get_column_profile(series: pd.Series) -> dict:
             for v in s_non_null.unique().tolist()
         ]
 
-        if inferred in ["categorical", "boolean_candidate"]:
+        if inferred in ["categorical", "boolean_candidate","boolean","text","number"]:
             unique_values = cleaned_unique_values[:max_preview_uniques]
 
         elif inferred == "text":

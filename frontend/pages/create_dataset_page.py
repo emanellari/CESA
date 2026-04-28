@@ -5,150 +5,209 @@ import pandas as pd
 from api.dataset_api import create_dataset_from_scratch
 from utils.ui_helpers import require_login, show_http_error
 
+
 def render_create_dataset_page():
     require_login()
 
-    # ===================== PAGE HEADER =====================
-    st.header("Create Dataset from Scratch")
+    st.title("Create Dataset")
 
-    # ===================== UNDO / REDO FUNCTIONS =====================
-    if "undo_stack_create" not in st.session_state:
-        st.session_state.undo_stack_create = []
-    if "redo_stack_create" not in st.session_state:
-        st.session_state.redo_stack_create = []
-    if "new_vars" not in st.session_state:
-        st.session_state.new_vars = []
-    if "new_ops" not in st.session_state:
-        st.session_state.new_ops = {}
+    # ===================== STATE INIT =====================
+    defaults = {
+        "undo_stack_create": [],
+        "redo_stack_create": [],
+        "new_vars": [],
+        "new_ops": {},
+        "current_var_type": "text",
+        "current_var_options": "",
+        "reset_form": False,
+        "input_key": 0,  # clave dinámica para resetear input
+    }
 
+    for k, v in defaults.items():
+        if k not in st.session_state:
+            st.session_state[k] = v
+
+    # ===================== RESET FORM (ANTES DE RENDER) =====================
+    if st.session_state.reset_form:
+        st.session_state.input_key += 1  # fuerza recreación del input
+        st.session_state.current_var_type = "text"
+        st.session_state.current_var_options = ""
+        st.session_state.reset_form = False
+
+    # ===================== UNDO / REDO =====================
     def push_undo():
-        snap = (
+        st.session_state.undo_stack_create.append((
             copy.deepcopy(st.session_state.new_vars),
             copy.deepcopy(st.session_state.new_ops),
-        )
-        st.session_state.undo_stack_create.append(snap)
+        ))
         st.session_state.redo_stack_create.clear()
 
     def do_undo():
-        if not st.session_state.undo_stack_create:
-            return
-        snap_current = (
-            copy.deepcopy(st.session_state.new_vars),
-            copy.deepcopy(st.session_state.new_ops),
-        )
-        st.session_state.redo_stack_create.append(snap_current)
-        prev_vars, prev_ops = st.session_state.undo_stack_create.pop()
-        st.session_state.new_vars = prev_vars
-        st.session_state.new_ops = prev_ops
-        st.rerun()
+        if st.session_state.undo_stack_create:
+            st.session_state.redo_stack_create.append((
+                st.session_state.new_vars,
+                st.session_state.new_ops
+            ))
+            st.session_state.new_vars, st.session_state.new_ops = \
+                st.session_state.undo_stack_create.pop()
+            st.rerun()
 
     def do_redo():
-        if not st.session_state.redo_stack_create:
-            return
-        snap_current = (
-            copy.deepcopy(st.session_state.new_vars),
-            copy.deepcopy(st.session_state.new_ops),
+        if st.session_state.redo_stack_create:
+            st.session_state.undo_stack_create.append((
+                st.session_state.new_vars,
+                st.session_state.new_ops
+            ))
+            st.session_state.new_vars, st.session_state.new_ops = \
+                st.session_state.redo_stack_create.pop()
+            st.rerun()
+
+    # ===================== DATASET NAME =====================
+    st.subheader("Dataset")
+
+    dataset_name = st.text_input(
+        "Name",
+        key="new_dataset_name",
+        placeholder="Customer survey, Sales log..."
+    )
+
+    # ===================== ADD FIELD =====================
+    st.subheader("Fields")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        var_name = st.text_input(
+            "Field name",
+            key=f"input_var_name_{st.session_state.input_key}"
         )
-        st.session_state.undo_stack_create.append(snap_current)
-        next_vars, next_ops = st.session_state.redo_stack_create.pop()
-        st.session_state.new_vars = next_vars
-        st.session_state.new_ops = next_ops
+
+    with col2:
+        var_type = st.selectbox(
+            "Type",
+            ["text", "number", "date", "radio", "checkbox", "select"],
+            index=["text", "number", "date", "radio", "checkbox", "select"].index(
+                st.session_state.current_var_type
+            )
+        )
+
+    if var_type != st.session_state.current_var_type:
+        st.session_state.current_var_type = var_type
+        st.session_state.current_var_options = ""
         st.rerun()
 
-    # ===================== TOP BAR =====================
-    col_name, col_undo, col_redo = st.columns([4,1,1])
-    with col_name:
-        st.text_input("Dataset Name", key="new_dataset_name")
+    if var_type in ["radio", "select"]:
+        st.session_state.current_var_options = st.text_input(
+            "Options",
+            value=st.session_state.current_var_options,
+            placeholder="Option 1, Option 2"
+        )
+
+    # ===================== VALIDATION =====================
+    name_clean = var_name.strip()
+    exists = name_clean in st.session_state.new_vars
+    can_add = name_clean != "" and not exists
+
+    if exists:
+        st.caption("Field already exists")
+
+    # ===================== ACTIONS =====================
+    col_add, col_undo, col_redo = st.columns([3,1,1])
+
+    with col_add:
+        if st.button("Add field", disabled=not can_add):
+            push_undo()
+
+            st.session_state.new_vars.append(name_clean)
+            st.session_state.new_ops[name_clean] = {
+                "type": var_type,
+                "options": [
+                    o.strip()
+                    for o in st.session_state.current_var_options.split(",")
+                    if o.strip()
+                ],
+            }
+
+            # activar reset
+            st.session_state.reset_form = True
+            st.rerun()
+
     with col_undo:
         st.button("Undo", on_click=do_undo)
+
     with col_redo:
         st.button("Redo", on_click=do_redo)
 
-    # ===================== DYNAMIC VARIABLE FORM =====================
-    if "current_var_type" not in st.session_state:
-        st.session_state.current_var_type = "text"
-    if "current_var_options" not in st.session_state:
-        st.session_state.current_var_options = ""
+    # ===================== FIELD LIST =====================
+    if st.session_state.new_vars:
+        st.subheader("Current fields")
 
-    var_name = st.text_input("Variable Name", key="input_var_name")
-    var_type = st.selectbox(
-        "Field Type",
-        ["text", "number", "date", "radio", "checkbox", "select"],
-        index=["text", "number", "date", "radio", "checkbox", "select"].index(st.session_state.current_var_type)
-    )
+        for v in st.session_state.new_vars:
+            meta = st.session_state.new_ops[v]
 
-    # 🔄 Update session_state for live dynamic render
-    if var_type != st.session_state.current_var_type:
-        st.session_state.current_var_type = var_type
-        st.session_state.current_var_options = ""  # reset options on type change
-        st.rerun()
+            col_a, col_b = st.columns([5,1])
 
-    # Show options input immediately if type supports options
-    if var_type in ["radio", "select"]:
-        st.session_state.current_var_options = st.text_input(
-            "Options (comma-separated)",
-            value=st.session_state.current_var_options,
-            placeholder="Option 1, Option 2, Option 3"
-        )
+            with col_a:
+                st.write(f"{v} — {meta['type']}")
 
-    # Button to add variable
-    if st.button("Add Variable"):
-        name = var_name.strip()
-        if not name:
-            st.warning("Please enter a variable name.")
-        elif name in st.session_state.new_vars:
-            st.warning("Variable already exists.")
-        else:
-            push_undo()
-            st.session_state.new_vars.append(name)
-            st.session_state.new_ops[name] = {
-                "type": var_type,
-                "options": [o.strip() for o in st.session_state.current_var_options.split(",") if o.strip()]
+            with col_b:
+                if st.button("Remove", key=f"del_{v}"):
+                    push_undo()
+                    st.session_state.new_vars.remove(v)
+                    st.session_state.new_ops.pop(v)
+                    st.rerun()
+
+    # ===================== PREVIEW =====================
+    if st.session_state.new_vars:
+        with st.expander("Preview form", expanded=False):
+            for v in st.session_state.new_vars:
+                meta = st.session_state.new_ops[v]
+                t = meta["type"]
+                opts = meta["options"]
+
+                if t == "text":
+                    st.text_input(v)
+                elif t == "number":
+                    st.number_input(v)
+                elif t == "date":
+                    st.date_input(v)
+                elif t == "radio":
+                    st.radio(v, opts or ["Option"])
+                elif t == "select":
+                    st.selectbox(v, opts or ["Option"])
+                elif t == "checkbox":
+                    st.checkbox(v)
+
+    # ===================== SUBMIT =====================
+    st.divider()
+
+    can_continue = dataset_name.strip() != "" and len(st.session_state.new_vars) > 0
+
+    if not dataset_name:
+        st.caption("Enter a dataset name to continue")
+
+    if st.button("Create dataset", disabled=not can_continue):
+        with st.spinner("Creating dataset..."):
+            payload = {
+                "name": dataset_name,
+                "options": st.session_state.new_ops,
+                "columns": st.session_state.new_vars,
             }
-            st.success(f"Variable added: {name}")
-            st.session_state.current_var_options = ""
-            st.rerun()
 
-    # ===================== FORM PREVIEW =====================
-    st.write("### Form Preview")
-    for v in st.session_state.new_vars:
-        meta = st.session_state.new_ops.get(v, {})
-        field_type = meta.get("type", "text")
-        options = meta.get("options", [])
+            r = create_dataset_from_scratch(payload)
 
-        if field_type == "text":
-            st.text_input(v)
-        elif field_type == "number":
-            st.number_input(v)
-        elif field_type == "date":
-            st.date_input(v)
-        elif field_type == "radio":
-            st.radio(v, options if options else ["Option 1"])
-        elif field_type == "select":
-            st.selectbox(v, options if options else ["Option 1"])
-        elif field_type == "checkbox":
-            st.checkbox(v)
+            if r.ok:
+                js = r.json()
 
-    # ===================== CONTINUE BUTTON =====================
-    can_continue = len(st.session_state.new_vars) > 0
-    if st.button("Continue", disabled=not can_continue):
-        payload = {
-            "name": st.session_state.new_dataset_name,
-            "options": st.session_state.new_ops,
-            "columns": st.session_state.new_vars,
-        }
-        r = create_dataset_from_scratch(payload)
+                st.session_state.dataset_id = js["dataset_id"]
+                st.session_state.dataset_name = js.get("name", dataset_name)
+                st.session_state.df = pd.DataFrame(
+                    js.get("data", []),
+                    columns=js.get("columns", st.session_state.new_vars)
+                )
+                st.session_state.dataset_meta = js.get("meta", {})
 
-        if r.ok:
-            js = r.json()
-            st.session_state.dataset_id = js["dataset_id"]
-            st.session_state.dataset_name = js.get("name", st.session_state.new_dataset_name)
-            st.session_state.df = pd.DataFrame(js.get("data", []), columns=js.get("columns", st.session_state.new_vars))
-            st.session_state.dataset_meta = js.get("meta", {})
-
-            # ✅ SET PAGE BEFORE ANY rerun / spinner
-            st.session_state.page = "Editor + Análisis"
-
-            st.rerun()
-        else:
-            show_http_error(r)
+                st.session_state.page = "Editor + Análisis"
+                st.rerun()
+            else:
+                show_http_error(r)

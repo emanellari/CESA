@@ -53,18 +53,10 @@ def render_column_editor(col_name: str, df: pd.DataFrame, profile: dict, config:
             unsafe_allow_html=True
         )
 
-        c1, c2 = st.columns([1.2, 1])
+        c1, c2, c3 = st.columns(3)
 
         with c1:
             st.caption(f"Detected type: {pretty_type_map.get(inferred, inferred)}")
-            st.caption(f"Null values: {profile['null_count']}")
-            st.caption(f"Unique values: {profile['unique_count']}")
-
-            if profile["sample_values"]:
-                st.write("Examples:")
-                st.code(", ".join(str(x) for x in profile["sample_values"][:5]))
-
-        with c2:
             type_options = ["text", "number", "categorical", "boolean", "date"]
             selected_type = st.selectbox(
                 f"Choose type for {col_name}",
@@ -74,15 +66,85 @@ def render_column_editor(col_name: str, df: pd.DataFrame, profile: dict, config:
                 label_visibility="visible"
             )
             config[col_name]["final_type"] = selected_type
+            form_ui = st.radio(
+                f"How should this appear in the form?",
+                ["Dropdown", "Radio buttons"],
+                key=f"form_ui_{col_name}",
+                index=0 if config[col_name].get("form_type", "select") == "select" else 1,
+                horizontal=True
+            )
+            config[col_name]["form_type"] = "select" if form_ui == "Dropdown" else "radio"
+            if selected_type in ["text", "categorical"]:
+                st.markdown("#### Text normalization")
 
-        if profile["unique_values"]:
-            st.write("Detected values:")
-            st.code(", ".join(str(x) for x in profile["unique_values"]))
+                case_option = st.selectbox(
+                    f"Case conversion for {col_name}",
+                    ["No change", "lowercase", "UPPERCASE", "Title Case"],
+                    key=f"case_{col_name}"
+                )
 
-        all_other_cols = [c for c in config.keys() if c != col_name]
+                config[col_name]["text_case"] = {
+                    "No change": None,
+                    "lowercase": "lower",
+                    "UPPERCASE": "upper",
+                    "Title Case": "title"
+                }[case_option]
+
+                remove_special = st.checkbox(
+                    "Remove special characters (á, ñ, symbols...)",
+                    value=config[col_name].get("remove_special_chars", False),
+                    key=f"remove_special_{col_name}"
+                )
+
+                config[col_name]["remove_special_chars"] = remove_special
+                if selected_type in ["text", "categorical"]:
+                    st.markdown("#### Create binary variables from text")
+
+                    enable_multi = st.checkbox(
+                        f"Create binary columns from keywords in {col_name}",
+                        key=f"multi_{col_name}"
+                    )
+
+                    config[col_name]["multi_hot_enabled"] = enable_multi
+
+                    if enable_multi:
+                        keywords_text = st.text_area(
+                            "Write keywords (one per line)",
+                            value=config[col_name].get("multi_hot_keywords", ""),
+                            key=f"multi_keywords_{col_name}"
+                        )
+
+                        config[col_name]["multi_hot_keywords"] = keywords_text
+
+                        keep_original = st.radio(
+                            "Keep original column?",
+                            ["Yes", "No"],
+                            key=f"keep_original_{col_name}"
+                        )
+
+                        config[col_name]["multi_hot_keep_original"] = (keep_original == "Yes")
+
+        with c2:
+            st.caption(f"Null values: {profile['null_count']}")
+
+        with c3:
+            st.caption(f"Unique values: {profile['unique_count']}")
+            if profile["unique_values"]:
+                st.write("Detected values:")
+                with st.expander("Unique Values"):
+                    unique_vals = [str(x) for x in profile["unique_values"]]
+                    df_unique = pd.DataFrame(unique_vals, columns=["Value"])
+
+                    st.dataframe(df_unique)
+
+
+        all_other_cols = [c for c in df.columns if c != col_name]
+
         numeric_other_cols = [
-            c for c in config.keys()
-            if c != col_name and config[c].get("final_type") == "number"
+            c for c in df.columns
+            if c != col_name
+               and isinstance(config.get(c), dict)
+               and config[c].get("final_type") == "number"
         ]
 
         if selected_type == "categorical":
@@ -98,60 +160,49 @@ def render_column_editor(col_name: str, df: pd.DataFrame, profile: dict, config:
             reverse_null_map = {v: k for k, v in null_label_to_value.items()}
             current_null_label = reverse_null_map.get(current_null_strategy, "Keep empty values")
 
-            if profile["null_count"] != 0:
-                chosen_null_label = st.radio(
-                    f"What should happen with empty values in {col_name}?",
-                    list(null_label_to_value.keys()),
-                    key=f"null_radio_{col_name}",
-                    index=list(null_label_to_value.keys()).index(current_null_label)
-                )
-                config[col_name]["null_strategy"] = null_label_to_value[chosen_null_label]
+            with c2:
+                if profile["null_count"] != 0:
+                    chosen_null_label = st.radio(
+                        f"What should happen with empty values in {col_name}?",
+                        list(null_label_to_value.keys()),
+                        key=f"null_radio_{col_name}",
+                        index=list(null_label_to_value.keys()).index(current_null_label)
+                    )
+                    config[col_name]["null_strategy"] = null_label_to_value[chosen_null_label]
 
-            config[col_name]["use_auto_choices"] = st.checkbox(
-                f"Use detected choices automatically for {col_name}",
-                value=config[col_name].get("use_auto_choices", True),
-                key=f"auto_choices_{col_name}"
-            )
 
-            form_ui = st.radio(
-                f"How should this appear in the form?",
-                ["Dropdown", "Radio buttons"],
-                key=f"form_ui_{col_name}",
-                index=0 if config[col_name].get("form_type", "select") == "select" else 1,
-                horizontal=True
-            )
-            config[col_name]["form_type"] = "select" if form_ui == "Dropdown" else "radio"
 
-            if config[col_name]["null_strategy"] == "fill":
-                config[col_name]["null_fill_value"] = st.text_input(
-                    f"Value to use for empty cells in {col_name}",
-                    value=config[col_name].get("null_fill_value", ""),
-                    key=f"fill_{col_name}"
-                )
 
-            elif config[col_name]["null_strategy"] == "fill_formula_text":
-                st.markdown("#### Build value from other columns")
-                config[col_name]["null_formula_cols"] = st.multiselect(
-                    f"Columns to use for {col_name}",
-                    all_other_cols,
-                    default=config[col_name].get("null_formula_cols", []),
-                    key=f"formula_cols_{col_name}"
-                )
-                config[col_name]["null_formula_text"] = st.text_input(
-                    f"Template for empty cells in {col_name}",
-                    value=config[col_name].get("null_formula_text", ""),
-                    key=f"formula_text_{col_name}",
-                    placeholder='{full_name.lower().replace(" ","")}@aol.com'
-                )
-                st.caption('Use expressions inside braces, for example: {full_name.lower().replace(" ","")}@aol.com')
+                if config[col_name]["null_strategy"] == "fill":
+                    config[col_name]["null_fill_value"] = st.text_input(
+                        f"Value to use for empty cells in {col_name}",
+                        value=config[col_name].get("null_fill_value", ""),
+                        key=f"fill_{col_name}"
+                    )
 
-            if not config[col_name]["use_auto_choices"]:
-                config[col_name]["manual_choices_text"] = st.text_area(
-                    f"Write your own choices for {col_name} (one per line)",
-                    value=config[col_name].get("manual_choices_text", ""),
-                    key=f"manual_choices_{col_name}",
-                    height=100
-                )
+                elif config[col_name]["null_strategy"] == "fill_formula_text":
+                    st.markdown("#### Build value from other columns")
+                    config[col_name]["null_formula_cols"] = st.multiselect(
+                        f"Columns to use for {col_name}",
+                        all_other_cols,
+                        default=config[col_name].get("null_formula_cols", []),
+                        key=f"formula_cols_{col_name}"
+                    )
+                    config[col_name]["null_formula_text"] = st.text_input(
+                        f"Template for empty cells in {col_name}",
+                        value=config[col_name].get("null_formula_text", ""),
+                        key=f"formula_text_{col_name}",
+                        placeholder='{full_name.lower().replace(" ","")}@aol.com'
+                    )
+                    st.caption('Use expressions inside braces, for example: {full_name.lower().replace(" ","")}@aol.com')
+
+                if not config[col_name]["use_auto_choices"]:
+                    config[col_name]["manual_choices_text"] = st.text_area(
+                        f"Write your own choices for {col_name} (one per line)",
+                        value=config[col_name].get("manual_choices_text", ""),
+                        key=f"manual_choices_{col_name}",
+                        height=100
+                    )
 
         elif selected_type == "number":
             null_label_to_value = {
@@ -167,39 +218,40 @@ def render_column_editor(col_name: str, df: pd.DataFrame, profile: dict, config:
             reverse_null_map = {v: k for k, v in null_label_to_value.items()}
             current_null_label = reverse_null_map.get(current_null_strategy, "Keep empty values")
 
-            if profile["null_count"] != 0:
-                chosen_null_label = st.radio(
-                    f"What should happen with empty values in {col_name}?",
-                    list(null_label_to_value.keys()),
-                    key=f"null_radio_{col_name}",
-                    index=list(null_label_to_value.keys()).index(current_null_label)
-                )
-                config[col_name]["null_strategy"] = null_label_to_value[chosen_null_label]
+            with c2:
+                if profile["null_count"] != 0:
+                    chosen_null_label = st.radio(
+                        f"What should happen with empty values in {col_name}?",
+                        list(null_label_to_value.keys()),
+                        key=f"null_radio_{col_name}",
+                        index=list(null_label_to_value.keys()).index(current_null_label)
+                    )
+                    config[col_name]["null_strategy"] = null_label_to_value[chosen_null_label]
 
-            config[col_name]["form_type"] = "number"
+                config[col_name]["form_type"] = "number"
 
-            if config[col_name]["null_strategy"] == "fill":
-                config[col_name]["null_fill_value"] = st.number_input(
-                    f"Value to use for empty cells in {col_name}",
-                    value=float(config[col_name].get("null_fill_value", 0) or 0),
-                    key=f"fill_{col_name}"
-                )
+                if config[col_name]["null_strategy"] == "fill":
+                    config[col_name]["null_fill_value"] = st.number_input(
+                        f"Value to use for empty cells in {col_name}",
+                        value=float(config[col_name].get("null_fill_value", 0) or 0),
+                        key=f"fill_{col_name}"
+                    )
 
-            elif config[col_name]["null_strategy"] == "fill_formula_numeric":
-                st.markdown("#### Build value from numeric columns")
-                config[col_name]["null_formula_cols"] = st.multiselect(
-                    f"Numeric columns to use for {col_name}",
-                    numeric_other_cols,
-                    default=config[col_name].get("null_formula_cols", []),
-                    key=f"formula_cols_{col_name}"
-                )
-                config[col_name]["null_formula_numeric"] = st.text_input(
-                    f"Formula for empty cells in {col_name}",
-                    value=config[col_name].get("null_formula_numeric", ""),
-                    key=f"formula_numeric_{col_name}",
-                    placeholder="({salary} + {bonus}) / 2"
-                )
-                st.caption("Use expressions with numeric columns inside braces, operators, and parentheses.")
+                elif config[col_name]["null_strategy"] == "fill_formula_numeric":
+                    st.markdown("#### Build value from numeric columns")
+                    config[col_name]["null_formula_cols"] = st.multiselect(
+                        f"Numeric columns to use for {col_name}",
+                        numeric_other_cols,
+                        default=config[col_name].get("null_formula_cols", []),
+                        key=f"formula_cols_{col_name}"
+                    )
+                    config[col_name]["null_formula_numeric"] = st.text_input(
+                        f"Formula for empty cells in {col_name}",
+                        value=config[col_name].get("null_formula_numeric", ""),
+                        key=f"formula_numeric_{col_name}",
+                        placeholder="({salary} + {bonus}) / 2"
+                    )
+                    st.caption("Use expressions with numeric columns inside braces, operators, and parentheses.")
 
             outlier_info = get_numeric_outlier_info(df[col_name])
 
@@ -213,45 +265,46 @@ def render_column_editor(col_name: str, df: pd.DataFrame, profile: dict, config:
                     st.caption("Examples of extreme values:")
                     st.code(", ".join(str(x) for x in outlier_info["examples"]))
 
-                st.markdown("#### Outlier handling")
+                with c2:
+                    st.markdown("#### Outlier handling")
 
-                outlier_ui_to_value = {
-                    "Do nothing": "none",
-                    "Cap using IQR": "cap_iqr",
-                    "Remove rows using IQR": "drop_iqr",
-                    "Cap using Z-score": "cap_zscore",
-                    "Remove rows using Z-score": "drop_zscore",
-                }
+                    outlier_ui_to_value = {
+                        "Do nothing": "none",
+                        "Cap using IQR": "cap_iqr",
+                        "Remove rows using IQR": "drop_iqr",
+                        "Cap using Z-score": "cap_zscore",
+                        "Remove rows using Z-score": "drop_zscore",
+                    }
 
-                current_outlier_strategy = config[col_name].get("outlier_strategy", "none")
-                reverse_outlier_map = {v: k for k, v in outlier_ui_to_value.items()}
-                current_outlier_label = reverse_outlier_map.get(current_outlier_strategy, "Do nothing")
+                    current_outlier_strategy = config[col_name].get("outlier_strategy", "none")
+                    reverse_outlier_map = {v: k for k, v in outlier_ui_to_value.items()}
+                    current_outlier_label = reverse_outlier_map.get(current_outlier_strategy, "Do nothing")
 
-                chosen_outlier_label = st.radio(
-                    f"What should happen with outliers in {col_name}?",
-                    list(outlier_ui_to_value.keys()),
-                    key=f"outlier_radio_{col_name}",
-                    index=list(outlier_ui_to_value.keys()).index(current_outlier_label)
-                )
-                config[col_name]["outlier_strategy"] = outlier_ui_to_value[chosen_outlier_label]
-
-                if config[col_name]["outlier_strategy"] in ["cap_iqr", "drop_iqr"]:
-                    config[col_name]["outlier_iqr_multiplier"] = st.number_input(
-                        f"IQR multiplier for {col_name}",
-                        min_value=0.5,
-                        value=float(config[col_name].get("outlier_iqr_multiplier", 1.5)),
-                        step=0.5,
-                        key=f"outlier_iqr_multiplier_{col_name}"
+                    chosen_outlier_label = st.radio(
+                        f"What should happen with outliers in {col_name}?",
+                        list(outlier_ui_to_value.keys()),
+                        key=f"outlier_radio_{col_name}",
+                        index=list(outlier_ui_to_value.keys()).index(current_outlier_label)
                     )
+                    config[col_name]["outlier_strategy"] = outlier_ui_to_value[chosen_outlier_label]
 
-                elif config[col_name]["outlier_strategy"] in ["cap_zscore", "drop_zscore"]:
-                    config[col_name]["outlier_zscore_threshold"] = st.number_input(
-                        f"Z-score threshold for {col_name}",
-                        min_value=1.0,
-                        value=float(config[col_name].get("outlier_zscore_threshold", 3.0)),
-                        step=0.5,
-                        key=f"outlier_zscore_threshold_{col_name}"
-                    )
+                    if config[col_name]["outlier_strategy"] in ["cap_iqr", "drop_iqr"]:
+                        config[col_name]["outlier_iqr_multiplier"] = st.number_input(
+                            f"IQR multiplier for {col_name}",
+                            min_value=0.5,
+                            value=float(config[col_name].get("outlier_iqr_multiplier", 1.5)),
+                            step=0.5,
+                            key=f"outlier_iqr_multiplier_{col_name}"
+                        )
+
+                    elif config[col_name]["outlier_strategy"] in ["cap_zscore", "drop_zscore"]:
+                        config[col_name]["outlier_zscore_threshold"] = st.number_input(
+                            f"Z-score threshold for {col_name}",
+                            min_value=1.0,
+                            value=float(config[col_name].get("outlier_zscore_threshold", 3.0)),
+                            step=0.5,
+                            key=f"outlier_zscore_threshold_{col_name}"
+                        )
             else:
                 st.success("No obvious outliers detected with the current IQR rule.")
                 config[col_name]["outlier_strategy"] = "none"
@@ -288,62 +341,62 @@ def render_column_editor(col_name: str, df: pd.DataFrame, profile: dict, config:
                     config[col_name]["true_value"] = suggested_true
                 if not config[col_name].get("false_value"):
                     config[col_name]["false_value"] = suggested_false
-
-                st.info(
-                    f"I found these values and I suggest:\n\n"
-                    f"- TRUE → {config[col_name]['true_value']}\n"
-                    f"- FALSE → {config[col_name]['false_value']}"
+                with c2:
+                    st.info(
+                        f"I found these values and I suggest:\n\n"
+                        f"- TRUE → {config[col_name]['true_value']}\n"
+                        f"- FALSE → {config[col_name]['false_value']}"
+                    )
+            with c2:
+                config[col_name]["true_value"] = st.text_input(
+                    f"Which value means TRUE in {col_name}?",
+                    value=config[col_name].get("true_value", ""),
+                    key=f"true_{col_name}"
                 )
 
-            config[col_name]["true_value"] = st.text_input(
-                f"Which value means TRUE in {col_name}?",
-                value=config[col_name].get("true_value", ""),
-                key=f"true_{col_name}"
-            )
-
-            config[col_name]["false_value"] = st.text_input(
-                f"Which value means FALSE in {col_name}?",
-                value=config[col_name].get("false_value", ""),
-                key=f"false_{col_name}"
-            )
-
-            if config[col_name]["null_strategy"] == "fill_formula_boolean":
-                st.markdown("#### Build boolean from other columns")
-                config[col_name]["null_formula_cols"] = st.multiselect(
-                    f"Columns to use for rule in {col_name}",
-                    all_other_cols,
-                    default=config[col_name].get("null_formula_cols", []),
-                    key=f"formula_cols_{col_name}"
+                config[col_name]["false_value"] = st.text_input(
+                    f"Which value means FALSE in {col_name}?",
+                    value=config[col_name].get("false_value", ""),
+                    key=f"false_{col_name}"
                 )
-                config[col_name]["null_formula_boolean"] = st.text_input(
-                    f"Logical rule for empty cells in {col_name}",
-                    value=config[col_name].get("null_formula_boolean", ""),
-                    key=f"formula_boolean_{col_name}",
-                    placeholder="{age} >= 18 and {active} == True"
+
+                if config[col_name]["null_strategy"] == "fill_formula_boolean":
+                    st.markdown("#### Build boolean from other columns")
+                    config[col_name]["null_formula_cols"] = st.multiselect(
+                        f"Columns to use for rule in {col_name}",
+                        all_other_cols,
+                        default=config[col_name].get("null_formula_cols", []),
+                        key=f"formula_cols_{col_name}"
+                    )
+                    config[col_name]["null_formula_boolean"] = st.text_input(
+                        f"Logical rule for empty cells in {col_name}",
+                        value=config[col_name].get("null_formula_boolean", ""),
+                        key=f"formula_boolean_{col_name}",
+                        placeholder="{age} >= 18 and {active} == True"
+                    )
+                    st.caption("Use boolean expressions with other columns inside braces.")
+            with c2:
+                config[col_name]["other_values_strategy"] = st.radio(
+                    f"If other values appear in {col_name}:",
+                    ["Turn into empty", "Turn into TRUE", "Turn into FALSE", "Delete those rows"],
+                    key=f"other_vals_ui_{col_name}",
+                    index={
+                        "null": 0,
+                        "true": 1,
+                        "false": 2,
+                        "drop": 3
+                    }.get(config[col_name].get("other_values_strategy", "null"), 0)
                 )
-                st.caption("Use boolean expressions with other columns inside braces.")
 
-            config[col_name]["other_values_strategy"] = st.radio(
-                f"If other values appear in {col_name}:",
-                ["Turn into empty", "Turn into TRUE", "Turn into FALSE", "Delete those rows"],
-                key=f"other_vals_ui_{col_name}",
-                index={
-                    "null": 0,
-                    "true": 1,
-                    "false": 2,
-                    "drop": 3
-                }.get(config[col_name].get("other_values_strategy", "null"), 0)
-            )
-
-            ui_to_internal = {
-                "Turn into empty": "null",
-                "Turn into TRUE": "true",
-                "Turn into FALSE": "false",
-                "Delete those rows": "drop",
-            }
-            config[col_name]["other_values_strategy"] = ui_to_internal[
-                st.session_state[f"other_vals_ui_{col_name}"]
-            ]
+                ui_to_internal = {
+                    "Turn into empty": "null",
+                    "Turn into TRUE": "true",
+                    "Turn into FALSE": "false",
+                    "Delete those rows": "drop",
+                }
+                config[col_name]["other_values_strategy"] = ui_to_internal[
+                    st.session_state[f"other_vals_ui_{col_name}"]
+                ]
 
         elif selected_type == "date":
             config[col_name]["form_type"] = "date"
@@ -357,23 +410,23 @@ def render_column_editor(col_name: str, df: pd.DataFrame, profile: dict, config:
             current_null_strategy = config[col_name].get("null_strategy", "keep")
             reverse_null_map = {v: k for k, v in null_label_to_value.items()}
             current_null_label = reverse_null_map.get(current_null_strategy, "Keep empty values")
-
-            if profile["null_count"] != 0:
-                chosen_null_label = st.radio(
-                    f"What should happen with empty values in {col_name}?",
-                    list(null_label_to_value.keys()),
-                    key=f"null_radio_{col_name}",
-                    index=list(null_label_to_value.keys()).index(current_null_label)
-                )
-                config[col_name]["null_strategy"] = null_label_to_value[chosen_null_label]
-
-            if config[col_name]["null_strategy"] == "fill":
-                config[col_name]["null_fill_value"] = st.text_input(
-                    f"Date to use for empty cells in {col_name}",
-                    value=config[col_name].get("null_fill_value", ""),
-                    key=f"fill_{col_name}",
-                    placeholder="2026-04-08"
-                )
+            with c2:
+                if profile["null_count"] != 0:
+                    chosen_null_label = st.radio(
+                        f"What should happen with empty values in {col_name}?",
+                        list(null_label_to_value.keys()),
+                        key=f"null_radio_{col_name}",
+                        index=list(null_label_to_value.keys()).index(current_null_label)
+                    )
+                    config[col_name]["null_strategy"] = null_label_to_value[chosen_null_label]
+            with c2:
+                if config[col_name]["null_strategy"] == "fill":
+                    config[col_name]["null_fill_value"] = st.text_input(
+                        f"Date to use for empty cells in {col_name}",
+                        value=config[col_name].get("null_fill_value", ""),
+                        key=f"fill_{col_name}",
+                        placeholder="2026-04-08"
+                    )
 
         else:
             config[col_name]["form_type"] = "text"
@@ -388,38 +441,64 @@ def render_column_editor(col_name: str, df: pd.DataFrame, profile: dict, config:
             current_null_strategy = config[col_name].get("null_strategy", "keep")
             reverse_null_map = {v: k for k, v in null_label_to_value.items()}
             current_null_label = reverse_null_map.get(current_null_strategy, "Keep empty values")
+            with c2:
+                if profile["null_count"] != 0:
+                    chosen_null_label = st.radio(
+                        f"What should happen with empty values in {col_name}?",
+                        list(null_label_to_value.keys()),
+                        key=f"null_radio_{col_name}",
+                        index=list(null_label_to_value.keys()).index(current_null_label)
+                    )
+                    config[col_name]["null_strategy"] = null_label_to_value[chosen_null_label]
 
-            if profile["null_count"] != 0:
-                chosen_null_label = st.radio(
-                    f"What should happen with empty values in {col_name}?",
-                    list(null_label_to_value.keys()),
-                    key=f"null_radio_{col_name}",
-                    index=list(null_label_to_value.keys()).index(current_null_label)
-                )
-                config[col_name]["null_strategy"] = null_label_to_value[chosen_null_label]
+                if config[col_name]["null_strategy"] == "fill":
+                    config[col_name]["null_fill_value"] = st.text_input(
+                        f"Value to use for empty cells in {col_name}",
+                        value=config[col_name].get("null_fill_value", ""),
+                        key=f"fill_{col_name}"
+                    )
 
-            if config[col_name]["null_strategy"] == "fill":
-                config[col_name]["null_fill_value"] = st.text_input(
-                    f"Value to use for empty cells in {col_name}",
-                    value=config[col_name].get("null_fill_value", ""),
-                    key=f"fill_{col_name}"
+                elif config[col_name]["null_strategy"] == "fill_formula_text":
+                    st.markdown("#### Build value from other columns")
+                    config[col_name]["null_formula_cols"] = st.multiselect(
+                        f"Columns to use for {col_name}",
+                        all_other_cols,
+                        default=config[col_name].get("null_formula_cols", []),
+                        key=f"formula_cols_{col_name}"
+                    )
+                    config[col_name]["null_formula_text"] = st.text_input(
+                        f"Template for empty cells in {col_name}",
+                        value=config[col_name].get("null_formula_text", ""),
+                        key=f"formula_text_{col_name}",
+                        placeholder='{full_name.lower().replace(" ","")}@aol.com'
+                    )
+                    st.caption('Use expressions inside braces, for example: {full_name.lower().replace(" ","")}@aol.com')
+        with c3:
+            if selected_type in ["text", "categorical"]:
+                st.markdown("#### Split column")
+
+                enable_split = st.checkbox(
+                    f"Split {col_name} into multiple columns",
+                    key=f"split_{col_name}"
                 )
 
-            elif config[col_name]["null_strategy"] == "fill_formula_text":
-                st.markdown("#### Build value from other columns")
-                config[col_name]["null_formula_cols"] = st.multiselect(
-                    f"Columns to use for {col_name}",
-                    all_other_cols,
-                    default=config[col_name].get("null_formula_cols", []),
-                    key=f"formula_cols_{col_name}"
-                )
-                config[col_name]["null_formula_text"] = st.text_input(
-                    f"Template for empty cells in {col_name}",
-                    value=config[col_name].get("null_formula_text", ""),
-                    key=f"formula_text_{col_name}",
-                    placeholder='{full_name.lower().replace(" ","")}@aol.com'
-                )
-                st.caption('Use expressions inside braces, for example: {full_name.lower().replace(" ","")}@aol.com')
+                config[col_name]["split_enabled"] = enable_split
 
+                if enable_split:
+                    delimiter = st.text_input(
+                        "Delimiter",
+                        value=config[col_name].get("split_delimiter", " "),
+                        key=f"split_delimiter_{col_name}"
+                    )
+
+                    new_cols = st.text_input(
+                        "New column names (comma separated)",
+                        value=config[col_name].get("split_new_cols", ""),
+                        key=f"split_cols_{col_name}",
+                        placeholder="first_name,last_name"
+                    )
+
+                    config[col_name]["split_delimiter"] = delimiter
+                    config[col_name]["split_new_cols"] = new_cols
         with st.expander(f"Advanced options for {col_name}"):
             render_replacements_editor(col_name, profile, config)

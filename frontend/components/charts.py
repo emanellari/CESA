@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import streamlit as st
-
+import plotly.express as px
 
 def render_histogram(series, title, xlabel):
     fig = plt.figure()
@@ -47,3 +47,35 @@ def render_scatter(x, y, title, xlabel, ylabel):
     plt.title(title)
     plt.tight_layout()
     st.pyplot(fig)
+
+
+
+def render_three_scatter_by_group(df, col_x, col_y, col_z, group_col="group"):
+
+    required_cols = [col_x, col_y, col_z, group_col]
+    missing = [c for c in required_cols if c not in df.columns]
+
+    if missing:
+        st.error(f"Missing columns: {missing}")
+        return
+
+    if df.empty:
+        st.warning("DataFrame is empty.")
+        return
+
+
+    fig = px.scatter_3d(
+        df,
+        x=col_x,
+        y=col_y,
+        z=col_z,
+        color=group_col,
+        opacity=0.8
+    )
+
+    fig.update_layout(
+        margin=dict(l=0, r=0, b=0, t=30),
+        legend_title_text=group_col
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
