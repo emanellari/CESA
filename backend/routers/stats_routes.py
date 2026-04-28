@@ -3,10 +3,10 @@ from sqlalchemy.orm import Session
 import pandas as pd
 import json
 
+from ..core.calculations import frequency_table, mode_values, most_rare_values, is_number
 from ..db import SessionLocal
 from ..models import Dataset, User
 from ..deps import get_current_user
-from shared.calculations import frequency_table, mode_values, most_rare_values, is_number
 
 router = APIRouter(prefix="/stats", tags=["stats"])
 
