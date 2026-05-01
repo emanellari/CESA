@@ -16,7 +16,7 @@ from services.cleaning.transforms import apply_user_config
 from services.cleaning.formulas import _safe_eval_expression, _render_text_template
 from utils.ui_helpers import show_http_error
 
-from util.ui_helpers import sanitize_column_name
+from utils.ui_helpers import sanitize_column_name
 
 
 def _resolve_cleaning_context():

@@ -2,7 +2,7 @@ import requests
 import streamlit as st
 import time
 
-from config import APP_TITLE, APP_LAYOUT, API_URL, HEALTHCHECK_TIMEOUT
+from config import APP_TITLE, APP_LAYOUT, API_URL, HEALTHCHECK_TIMEOUT, APP_ICON
 from utils.session import init_session
 
 from pages.login_page import render_login_page
@@ -20,6 +20,8 @@ from constants.navigation import (
     PAGE_LOGIN,
     PAGE_Cleaning
 )
+import base64
+
 
 # ===================== PAGE STATE KEYS =====================
 PAGE_STATE_KEYS = {
@@ -60,6 +62,8 @@ def get_api_status():
         st.session_state.api_status = None
         st.session_state.api_status_code = None
 
+
+
     current_time = time.time()
 
     if current_time - st.session_state.api_last_check > 10:
@@ -76,10 +80,14 @@ def get_api_status():
     return st.session_state.api_status, st.session_state.api_status_code
 
 
+def get_base64_image(path):
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
 # ===================== CONFIG =====================
 st.set_page_config(
     page_title=APP_TITLE,
     layout=APP_LAYOUT,
+    page_icon=APP_ICON,
     initial_sidebar_state="expanded",
 )
 
@@ -99,13 +107,22 @@ if "prev_page" not in st.session_state:
 
 
 # ===================== HEADER =====================
-st.markdown(f"""
-<div class="uv-header">
-    <div class="uv-title">{APP_TITLE}</div>
-    <div class="uv-subtitle">Streamlit UI + FastAPI backend</div>
-</div>
-""", unsafe_allow_html=True)
+img_base64 = get_base64_image(APP_ICON)
 
+st.markdown(
+    f"""
+    <div class="uv-header">
+        <div class="uv-title">
+            <span class="uv-icon-wrapper">
+                <img src="data:image/png;base64,{img_base64}" class="uv-icon"/>
+            </span>
+            <span class="uv-title-text">{APP_TITLE}</span>
+        </div>
+        <div class="uv-subtitle">Streamlit UI + FastAPI backend</div>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 # ===================== SIDEBAR =====================
 with st.sidebar:

@@ -5,8 +5,8 @@ import re
 
 def sanitize_column_name(name: str) -> str:
     name = name.lower().strip()
-    name = re.sub(r"\s+", "_", name)  # espacios → _
-    name = re.sub(r"[^a-z0-9_]", "", name)  # quitar símbolos
+    name = re.sub(r"\s+", "_", name)
+    name = re.sub(r"[^a-z0-9_]", "", name)
     return name
 
 def build_prediction_formula(model) -> str:
@@ -23,7 +23,7 @@ def build_prediction_formula(model) -> str:
 
 def require_login():
     if not st.session_state.get("token"):
-        st.warning("🔐 Inicia sesión para usar la app.")
+        st.warning("Log in to run the app.")
         st.stop()
 
 

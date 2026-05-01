@@ -1,15 +1,16 @@
+/* Cleaned CSS: duplicate top-level selectors were merged using CSS cascade (last value wins). */
+
 /* ---------------- APP ---------------- */
+
 header[data-testid="stHeader"] {
     background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
     border-bottom: none;
 }
 
-/* Quita sombras/ruido */
+/* Remove shadow/noise */
+
 header[data-testid="stHeader"]::before {
     box-shadow: none !important;
-}
-.uv-header {
-    margin-top: 3rem;
 }
 
 .auth-subtitle {
@@ -18,6 +19,7 @@ header[data-testid="stHeader"]::before {
     margin-bottom: 14px;
     line-height: 1.5;
 }
+
 .stApp {
     font-family: "Segoe UI", sans-serif;
     color: #1e293b;
@@ -28,19 +30,19 @@ header[data-testid="stHeader"]::before {
 .block-container {
     padding-top: 0.7rem !important;
     padding-bottom: 1.2rem !important;
-    max-width:100%;
+    max-width: 100%;
 }
 
 section.main > div {
     padding-top: 0.2rem !important;
 }
 
-
 div[data-testid="stVerticalBlock"] > div:empty {
     display: none !important;
 }
 
 /* ---------------- TITLES ---------------- */
+
 h1, h2, h3 {
     color: #0f172a;
     letter-spacing: -0.02em;
@@ -64,6 +66,7 @@ h3 {
 }
 
 /* ---------------- TABS ---------------- */
+
 [data-testid="stTabs"] {
     margin-top: 0.25rem !important;
     margin-bottom: 0.7rem !important;
@@ -84,6 +87,7 @@ h3 {
 }
 
 /* ---------------- LEFT PANEL ---------------- */
+
 .gradient-panel {
     background: linear-gradient(145deg, #2563eb 0%, #0f172a 100%) !important;
     padding: 30px 28px;
@@ -138,6 +142,7 @@ h3 {
 }
 
 /* ---------------- LOGIN ---------------- */
+
 .auth-wrapper {
     padding-top: 4px;
 }
@@ -160,6 +165,7 @@ h3 {
 }
 
 /* ---------------- TEXTS ---------------- */
+
 p, label, .stText {
     color: #475569;
     line-height: 1.55;
@@ -170,6 +176,7 @@ p {
 }
 
 /* ---------------- INPUTS ---------------- */
+
 .stTextInput > div > div {
     border-radius: 14px;
     box-shadow: inset 0 2px 5px rgba(0,0,0,0.06);
@@ -196,6 +203,7 @@ p {
 }
 
 /* ---------------- BUTTONS ---------------- */
+
 .stButton > button {
     width: 100% !important;
     height: 48px !important;
@@ -204,8 +212,7 @@ p {
     font-weight: 600 !important;
     font-size: 15px !important;
     background: linear-gradient(145deg, #2563eb, #0f172a) !important;
-    box-shadow: 4px 6px 15px rgba(37, 99, 235, 0.2),
-                -2px -2px 8px rgba(255, 255, 255, 0.1);
+    box-shadow: 4px 6px 15px rgba(37, 99, 235, 0.2), -2px -2px 8px rgba(255, 255, 255, 0.1);
     transition: all 0.3s ease;
 }
 
@@ -216,8 +223,7 @@ p {
 
 .stButton > button:hover {
     transform: translateY(-2px);
-    box-shadow: 6px 10px 22px rgba(37, 99, 235, 0.25),
-                -2px -2px 10px rgba(255, 255, 255, 0.1);
+    box-shadow: 6px 10px 22px rgba(37, 99, 235, 0.25), -2px -2px 10px rgba(255, 255, 255, 0.1);
 }
 
 .stButton > button:active {
@@ -225,12 +231,15 @@ p {
 }
 
 /* ---------------- LINE ---------------- */
+
 hr {
     border: none;
     border-top: 1px solid #e2e8f0;
     margin: 0.8rem 0;
 }
+
 /* ---------------- SIDEBAR BASE ---------------- */
+
 section[data-testid="stSidebar"] {
     background: linear-gradient(145deg, #2563eb, #0f172a);
     border-right: 1px solid rgba(255,255,255,0.08);
@@ -239,18 +248,19 @@ section[data-testid="stSidebar"] {
     left: 0;
     height: 100%;
     overflow-y: auto;
-
     padding: 18px 14px;
     backdrop-filter: blur(6px);
 }
 
 /* ---------------- GENERAL TEXT ---------------- */
+
 section[data-testid="stSidebar"] * {
     font-size: 0.92rem;
     color: rgba(255,255,255,0.85);
 }
 
 /* ---------------- HEADER ---------------- */
+
 section[data-testid="stSidebar"] h1,
 section[data-testid="stSidebar"] h2,
 section[data-testid="stSidebar"] h3 {
@@ -260,11 +270,13 @@ section[data-testid="stSidebar"] h3 {
 }
 
 /* ---------------- NAV RADIO (Streamlit) ---------------- */
+
 section[data-testid="stSidebar"] [role="radiogroup"] {
     gap: 6px;
 }
 
-/* Cada opción */
+/* Each option */
+
 section[data-testid="stSidebar"] label {
     background: transparent;
     padding: 8px 12px;
@@ -275,11 +287,13 @@ section[data-testid="stSidebar"] label {
 }
 
 /* Hover */
+
 section[data-testid="stSidebar"] label:hover {
     background: rgba(255,255,255,0.08);
 }
 
 /* Selected */
+
 section[data-testid="stSidebar"] input[type="radio"]:checked + div {
     background: rgba(255,255,255,0.15);
     border-radius: 10px;
@@ -288,6 +302,7 @@ section[data-testid="stSidebar"] input[type="radio"]:checked + div {
 }
 
 /* ---------------- BUTTONS ---------------- */
+
 section[data-testid="stSidebar"] button {
     border-radius: 10px;
     border: none;
@@ -302,6 +317,7 @@ section[data-testid="stSidebar"] button:hover {
 }
 
 /* ---------------- DIVIDER ---------------- */
+
 section[data-testid="stSidebar"] hr {
     border: none;
     height: 1px;
@@ -309,18 +325,21 @@ section[data-testid="stSidebar"] hr {
 }
 
 /* ---------------- CAPTION / STATUS ---------------- */
+
 section[data-testid="stSidebar"] .stCaption {
     color: rgba(255,255,255,0.6);
     font-size: 0.78rem;
 }
 
 /* ---------------- SUCCESS / ERROR ---------------- */
+
 section[data-testid="stSidebar"] .stAlert {
     border-radius: 10px;
     font-size: 0.85rem;
 }
 
 /* ---------------- SCROLLBAR (BONUS PRO) ---------------- */
+
 section[data-testid="stSidebar"]::-webkit-scrollbar {
     width: 6px;
 }
@@ -329,7 +348,9 @@ section[data-testid="stSidebar"]::-webkit-scrollbar-thumb {
     background: rgba(255,255,255,0.25);
     border-radius: 10px;
 }
-/* Flecha/control nativo oculto */
+
+/* Hide native arrow/control */
+
 [data-testid="collapsedControl"],
 [data-testid="stSidebarCollapsedControl"],
 button[kind="header"] {
@@ -337,28 +358,15 @@ button[kind="header"] {
 }
 
 /* ---------------- HEADER / WORKFLOW CARDS ---------------- */
+
 .uv-header {
+    margin-top: 3rem;
     padding: 0.8rem 1rem 0.75rem 1rem;
     border-radius: 20px;
     background: linear-gradient(135deg, #ffffff 0%, #f8fbff 55%, #eef6ff 100%);
     border: 1px solid #e5e7eb;
     box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
     margin-bottom: 0.7rem;
-}
-
-.uv-title {
-    font-size: 1.28rem;
-    font-weight: 750;
-    color: #0f172a;
-    margin-bottom: 0.1rem;
-    letter-spacing: -0.02em;
-    line-height: 1.15;
-}
-
-.uv-subtitle {
-    color: #64748b;
-    font-size: 0.88rem;
-    line-height: 1.4;
 }
 
 .uv-card {
@@ -471,6 +479,7 @@ button[kind="header"] {
 }
 
 /* ---------------- DARK MODE ---------------- */
+
 body[data-theme="dark"] .stApp {
     background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
     color: #e2e8f0;
@@ -489,13 +498,13 @@ body[data-theme="dark"] .stTextInput > div > div > input {
 
 body[data-theme="dark"] .stButton > button {
     background: linear-gradient(145deg, #2563eb, #0c1230) !important;
-    box-shadow: 4px 6px 15px rgba(37, 99, 235, 0.3),
-                -2px -2px 8px rgba(255, 255, 255, 0.05);
+    box-shadow: 4px 6px 15px rgba(37, 99, 235, 0.3), -2px -2px 8px rgba(255, 255, 255, 0.05);
 }
 
 /* ---------------- RESPONSIVE ---------------- */
+
 @media (max-width: 1024px) {
-    .gradient-panel {
+.gradient-panel {
         min-height: 390px;
         padding: 26px 22px;
     }
@@ -506,7 +515,7 @@ body[data-theme="dark"] .stButton > button {
 }
 
 @media (max-width: 768px) {
-    .block-container {
+.block-container {
         padding-top: 0.6rem !important;
         padding-left: 16px !important;
         padding-right: 16px !important;
@@ -549,7 +558,7 @@ body[data-theme="dark"] .stButton > button {
 }
 
 @media (max-width: 480px) {
-    .gradient-panel {
+.gradient-panel {
         min-height: 290px;
         padding: 18px 14px;
     }
@@ -654,6 +663,7 @@ body[data-theme="dark"] .stButton > button {
     line-height: 1.55;
     margin-bottom: 0.9rem;
 }
+
 div[data-testid="stForm"] {
     background: #ffffff;
     border: 1px solid #e2e8f0;
@@ -678,86 +688,14 @@ div[data-testid="stCheckbox"] {
     margin-bottom: 0.9rem;
 }
 
-.table-section-header {
-    margin-bottom: 0.9rem;
-}
+/* Make border=True blocks look like white cards */
 
-.table-section-title {
-    font-size: 1.08rem;
-    font-weight: 700;
-    color: #1e293b;
-    margin-bottom: 0.2rem;
-}
-
-.table-section-subtitle {
-    color: #64748b;
-    font-size: 0.93rem;
-    line-height: 1.55;
-    margin-bottom: 0.45rem;
-}
-
-.table-card-title {
-    font-size: 1rem;
-    font-weight: 700;
-    color: #1e293b;
-    margin-bottom: 0.2rem;
-}
-
-.table-card-subtitle {
-    color: #64748b;
-    font-size: 0.91rem;
-    line-height: 1.5;
-    margin-bottom: 0.9rem;
-}
-
-/* Hace que los bloques con border=True se vean como cards blancas */
 div[data-testid="stVerticalBlockBorderWrapper"] {
     background: #ffffff;
     border: 1px solid #e2e8f0 !important;
     border-radius: 18px !important;
     padding: 1rem 1rem 0.9rem 1rem !important;
     box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
-}
-
-/* Más aire entre controles */
-div[data-testid="stTextInput"],
-div[data-testid="stSelectbox"],
-div[data-testid="stSlider"],
-div[data-testid="stToggle"] {
-    margin-bottom: 0.55rem;
-}
-
-/* Data editor más limpio */
-div[data-testid="stDataEditor"] {
-    border-radius: 16px;
-    overflow: hidden;
-    border: 1px solid #e2e8f0;
-}
-
-/* Mini métricas */
-.table-mini-metric {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 14px;
-    padding: 0.8rem 0.9rem;
-    margin-top: 0.3rem;
-}
-
-.table-mini-metric-label {
-    font-size: 0.78rem;
-    color: #64748b;
-    margin-bottom: 0.2rem;
-}
-
-.table-mini-metric-value {
-    font-size: 1.15rem;
-    font-weight: 700;
-    color: #1e293b;
-}
-
-div[data-testid="stDataEditor"] {
-    border-radius: 18px;
-    overflow: hidden;
 }
 
 div[data-testid="stDataEditor"] [data-testid="stElementToolbar"] {
@@ -822,6 +760,8 @@ details[open] {
     margin-bottom: 0.9rem;
 }
 
+/* Mini metrics */
+
 .table-mini-metric {
     background: #f8fafc;
     border: 1px solid #e2e8f0;
@@ -842,12 +782,16 @@ details[open] {
     color: #1e293b;
 }
 
+/* Add more spacing between controls */
+
 div[data-testid="stTextInput"],
 div[data-testid="stSelectbox"],
 div[data-testid="stSlider"],
 div[data-testid="stToggle"] {
     margin-bottom: 0.55rem;
 }
+
+/* Cleaner data editor */
 
 div[data-testid="stDataEditor"] {
     border-radius: 16px;
@@ -857,4 +801,34 @@ div[data-testid="stDataEditor"] {
 
 .card-scope div[data-testid="stVerticalBlockBorderWrapper"] {
     background: #ffffff !important;
+}
+
+.uv-title {
+    font-size: 1.28rem;
+    font-weight: 750;
+    color: #0f172a;
+    margin-bottom: 0.1rem;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.uv-icon {
+    width: 26px;
+    height: 26px;
+    object-fit: contain;
+}
+
+.uv-title-text {
+    font-size: 24px;
+    font-weight: 600;
+}
+
+.uv-subtitle {
+    color: gray;
+    font-size: 14px;
+    line-height: 1.4;
+    margin-top: 4px;
 }
