@@ -2117,3 +2117,362 @@ div[data-testid="column"] {
         font-size: 0.92rem !important;
     }
 }
+/* ============================================================
+   DATA CLEANING — PROFESSIONAL UI
+   Paste at the END of styles.css
+   ============================================================ */
+
+/* ---------- Header ---------- */
+.clean-header {
+    padding: 1.15rem 1.25rem 1rem 1.25rem;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fbff 55%, #eef6ff 100%);
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+    margin-bottom: 1rem;
+}
+
+.clean-title {
+    font-size: 1.38rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 0.22rem;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+}
+
+.clean-subtitle {
+    color: #64748b;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    max-width: 980px;
+}
+
+.clean-badge {
+    display: inline-flex;
+    align-items: center;
+    margin-top: 0.75rem;
+    padding: 0.32rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #1d4ed8;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+}
+
+/* ---------- Cards ---------- */
+.clean-card {
+    background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    padding: 0.95rem 1rem;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.04);
+    margin-bottom: 0.85rem;
+}
+
+/* ---------- KPI cards ---------- */
+.clean-kpi {
+    min-height: 108px;
+    position: relative;
+    overflow: hidden;
+}
+
+.clean-kpi::before {
+    content: "";
+    display: block;
+    width: 100%;
+    height: 4px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #2563eb, #0ea5e9);
+    margin-bottom: 0.72rem;
+}
+
+.clean-kpi-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #64748b;
+    margin-bottom: 0.28rem;
+    line-height: 1.2;
+}
+
+.clean-kpi-value {
+    font-size: 1.18rem;
+    line-height: 1.15;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 0.16rem;
+    letter-spacing: -0.02em;
+    overflow-wrap: anywhere;
+}
+
+.clean-kpi-subtitle {
+    font-size: 0.76rem;
+    color: #64748b;
+    line-height: 1.35;
+}
+
+/* ---------- Section titles ---------- */
+.clean-panel-title {
+    font-size: 1.03rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin-top: 0.1rem;
+    margin-bottom: 0.35rem;
+    line-height: 1.2;
+}
+
+.clean-panel-subtitle {
+    font-size: 0.86rem;
+    color: #64748b;
+    margin-bottom: 0.75rem;
+    line-height: 1.45;
+}
+
+/* ---------- Alert blocks ---------- */
+.clean-info,
+.clean-success,
+.clean-warning,
+.clean-danger,
+.clean-note {
+    padding: 0.78rem 0.9rem;
+    border-radius: 12px;
+    margin-bottom: 0.72rem;
+    color: #0f172a;
+    font-size: 0.86rem;
+    line-height: 1.48;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+}
+
+.clean-info {
+    border-left: 4px solid #2563eb;
+    background: #f8fbff;
+}
+
+.clean-success {
+    border-left: 4px solid #16a34a;
+    background: #f6fdf8;
+}
+
+.clean-warning {
+    border-left: 4px solid #f59e0b;
+    background: #fffaf0;
+}
+
+.clean-danger {
+    border-left: 4px solid #dc2626;
+    background: #fff7f7;
+}
+
+.clean-note {
+    border-left: 4px solid #64748b;
+    background: #f8fafc;
+}
+
+/* ---------- Cleaning tabs ---------- */
+[data-testid="stTabs"] {
+    margin-top: 0.35rem !important;
+}
+
+[data-testid="stTabs"] [role="tablist"] {
+    gap: 0.25rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+[data-testid="stTabs"] button[role="tab"] {
+    min-height: 34px !important;
+    padding: 0.35rem 0.75rem !important;
+    border-radius: 10px 10px 0 0 !important;
+    font-size: 0.82rem !important;
+    font-weight: 650 !important;
+}
+
+[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+    background: #2563eb !important;
+    color: #ffffff !important;
+}
+
+[data-testid="stTabs"] div[data-testid="stTabContent"] {
+    padding-top: 0.85rem !important;
+}
+
+/* ---------- Expanders as professional rule cards ---------- */
+details {
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 16px !important;
+    padding: 0.55rem 0.75rem !important;
+    margin-bottom: 0.7rem !important;
+    background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%) !important;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.035);
+}
+
+summary {
+    font-weight: 750 !important;
+    color: #0f172a !important;
+    font-size: 0.92rem !important;
+}
+
+details[open] {
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.055);
+}
+
+/* ---------- Forms / inputs inside cleaning ---------- */
+div[data-testid="stCheckbox"] {
+    margin-bottom: 0.45rem !important;
+}
+
+div[data-testid="stTextInput"],
+div[data-testid="stTextArea"],
+div[data-testid="stSelectbox"],
+div[data-testid="stMultiSelect"],
+div[data-testid="stNumberInput"],
+div[data-testid="stDateInput"] {
+    margin-bottom: 0.55rem !important;
+}
+
+div[data-testid="stTextArea"] textarea {
+    border-radius: 14px !important;
+    min-height: 80px !important;
+}
+
+div[data-testid="stTextInput"] input,
+div[data-testid="stNumberInput"] input,
+div[data-testid="stDateInput"] input {
+    border-radius: 12px !important;
+}
+
+/* ---------- Buttons ---------- */
+.stButton > button {
+    border-radius: 14px !important;
+    font-weight: 700 !important;
+}
+
+.stButton > button:hover {
+    transform: translateY(-1px);
+}
+
+/* ---------- Tables ---------- */
+div[data-testid="stDataFrame"] {
+    border-radius: 14px !important;
+    overflow: hidden !important;
+    border: 1px solid #e2e8f0 !important;
+    background: #ffffff !important;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.035);
+}
+
+div[data-testid="stDataFrame"] * {
+    font-size: 0.82rem !important;
+}
+
+/* ---------- JSON / schema preview ---------- */
+div[data-testid="stJson"] {
+    border-radius: 14px !important;
+    overflow: hidden !important;
+    border: 1px solid #e2e8f0 !important;
+    background: #ffffff !important;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.035);
+}
+
+/* ---------- Code blocks, useful if formulas appear ---------- */
+div[data-testid="stCodeBlock"] {
+    border-radius: 14px !important;
+    overflow: hidden !important;
+    border: 1px solid #e2e8f0 !important;
+}
+
+/* ---------- Dividers ---------- */
+hr {
+    border: none !important;
+    border-top: 1px solid #e2e8f0 !important;
+    margin: 1rem 0 !important;
+}
+
+/* ---------- Column spacing ---------- */
+div[data-testid="column"] {
+    padding-left: 0.25rem !important;
+    padding-right: 0.25rem !important;
+}
+
+/* ---------- Streamlit captions in cleaning flow ---------- */
+div[data-testid="stCaptionContainer"],
+div[data-testid="stCaptionContainer"] p {
+    color: #64748b !important;
+    font-size: 0.82rem !important;
+}
+
+/* ---------- Cleaning overview dataframe spacing ---------- */
+.clean-header + div {
+    margin-top: 0.15rem;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 900px) {
+    .clean-header {
+        padding: 0.95rem 1rem;
+        border-radius: 16px;
+    }
+
+    .clean-title {
+        font-size: 1.15rem;
+    }
+
+    .clean-subtitle {
+        font-size: 0.84rem;
+    }
+
+    .clean-badge {
+        font-size: 0.72rem;
+        padding: 0.28rem 0.58rem;
+    }
+
+    .clean-card {
+        padding: 0.8rem;
+        border-radius: 16px;
+    }
+
+    .clean-kpi {
+        min-height: 94px;
+    }
+
+    .clean-kpi-value {
+        font-size: 1rem;
+    }
+
+    .clean-kpi-title,
+    .clean-kpi-subtitle {
+        font-size: 0.72rem;
+    }
+
+    .clean-panel-title {
+        font-size: 0.95rem;
+    }
+
+    .clean-panel-subtitle {
+        font-size: 0.8rem;
+    }
+
+    .clean-info,
+    .clean-success,
+    .clean-warning,
+    .clean-danger,
+    .clean-note {
+        font-size: 0.8rem;
+        padding: 0.68rem 0.75rem;
+        border-radius: 11px;
+    }
+
+    [data-testid="stTabs"] button[role="tab"] {
+        font-size: 0.75rem !important;
+        padding: 0.3rem 0.5rem !important;
+    }
+
+    details {
+        border-radius: 14px !important;
+        padding: 0.5rem 0.62rem !important;
+    }
+
+    summary {
+        font-size: 0.86rem !important;
+    }
+}
