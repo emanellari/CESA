@@ -1,270 +1,204 @@
-import pandas as pd
-import streamlit as st
-from services.stat_service import  detect_is_numeric
-
 import numpy as np
+import pandas as pd
 import plotly.express as px
+import streamlit as st
 from scipy import stats
 import statsmodels.api as sm
 
+from services.stat_service import detect_is_numeric
 from utils.ui_helpers import build_prediction_formula
 
+
+# ============================================================
+# GENERAL HELPERS
+# ============================================================
 
 def _safe_pct(num: float, den: float) -> float:
     return round((num / den) * 100, 2) if den else 0.0
 
 
-def render_numeric_categorical(
-    sa: pd.Series,
-    sb: pd.Series,
-    col_a: str,
-    col_b: str,
-    a_is_num: bool,
-):
-    st.write("**Relationship type:** Numeric vs Categorical")
+def _format_number(value, decimals: int = 3) -> str:
+    if value is None or pd.isna(value):
+        return "—"
 
-    if a_is_num:
-        num_col = col_a
-        cat_col = col_b
-        temp = pd.DataFrame({
-            num_col: pd.to_numeric(sa, errors="coerce"),
-            cat_col: sb.fillna("(missing)").astype(str)
-        })
-    else:
-        num_col = col_b
-        cat_col = col_a
-        temp = pd.DataFrame({
-            num_col: pd.to_numeric(sb, errors="coerce"),
-            cat_col: sa.fillna("(missing)").astype(str)
-        })
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return str(value)
 
-    n_before = len(temp)
-    temp = temp.dropna(subset=[num_col])
-    n_after = len(temp)
+    if abs(value) >= 1000:
+        return f"{value:,.{decimals}f}"
 
-    st.caption(f"Valid observations used: {n_after} / {n_before}")
+    return f"{value:.{decimals}f}"
 
-    if temp.empty or temp[cat_col].nunique() < 2:
-        st.warning("Not enough valid grouped data.")
-        return
 
-    group_summary = (
-        temp.groupby(cat_col)[num_col]
-        .agg(["count", "mean", "median", "min", "max", "std"])
-        .reset_index()
-        .sort_values("mean", ascending=False)
+def _format_int(value) -> str:
+    try:
+        return f"{int(value):,}"
+    except (TypeError, ValueError):
+        return "—"
+
+
+def _truncate_text(value, max_len: int = 24) -> str:
+    text = str(value)
+    return text if len(text) <= max_len else text[:max_len - 3] + "..."
+
+
+def _normalize_missing(s: pd.Series) -> pd.Series:
+    s_clean = s.astype(str).str.strip()
+
+    missing_like = {
+        "",
+        "na",
+        "n/a",
+        "n.a",
+        "nan",
+        "null",
+        "none",
+        "missing",
+        "-",
+        "--",
+    }
+
+    return s_clean.mask(s_clean.str.lower().isin(missing_like), np.nan)
+
+
+def _plot_layout(fig, height: int = 420, x_title: str = "", y_title: str = ""):
+    fig.update_layout(
+        height=height,
+        margin=dict(l=10, r=10, t=25, b=10),
+        xaxis_title=x_title,
+        yaxis_title=y_title,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(size=12),
+        legend_title_text="",
+    )
+    return fig
+
+
+def _detected_pair_label(a_is_num: bool, b_is_num: bool) -> str:
+    if a_is_num and b_is_num:
+        return "Numeric vs Numeric"
+
+    if (not a_is_num) and (not b_is_num):
+        return "Categorical vs Categorical"
+
+    return "Numeric vs Categorical"
+
+
+def _quality_badge_from_pair_validity(valid_pct: float) -> str:
+    if valid_pct >= 95:
+        return "High readiness"
+    if valid_pct >= 80:
+        return "Good readiness"
+    if valid_pct >= 60:
+        return "Moderate readiness"
+    return "Low readiness"
+
+
+def _alert_type_from_pair_validity(valid_pct: float) -> str:
+    if valid_pct >= 95:
+        return "success"
+    if valid_pct >= 80:
+        return "info"
+    if valid_pct >= 60:
+        return "warning"
+    return "danger"
+
+
+def _association_strength_from_correlation(value: float) -> str:
+    if pd.isna(value):
+        return "undefined"
+
+    abs_val = abs(value)
+
+    if abs_val < 0.2:
+        return "very weak"
+    if abs_val < 0.4:
+        return "weak"
+    if abs_val < 0.6:
+        return "moderate"
+    if abs_val < 0.8:
+        return "strong"
+
+    return "very strong"
+
+
+def _association_strength_from_cramers_v(value: float) -> str:
+    if pd.isna(value):
+        return "undefined"
+
+    if value < 0.1:
+        return "very weak"
+    if value < 0.3:
+        return "weak"
+    if value < 0.5:
+        return "moderate"
+
+    return "strong"
+
+
+# ============================================================
+# UI HELPERS
+# ============================================================
+
+def _render_bi_kpi(title: str, value: str, subtitle: str = ""):
+    st.markdown(
+        f"""
+        <div class="bi-card bi-kpi">
+            <div class="bi-kpi-title">{title}</div>
+            <div class="bi-kpi-value">{value}</div>
+            <div class="bi-kpi-subtitle">{subtitle}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-    grouped = [g[num_col].values for _, g in temp.groupby(cat_col)]
-    anova_p = np.nan
-    if len(grouped) >= 2 and all(len(g) > 1 for g in grouped):
-        _, anova_p = stats.f_oneway(*grouped)
 
-    m1, m2, m3 = st.columns(3)
-    m1.metric("Groups", int(temp[cat_col].nunique()))
-    m2.metric("N", n_after)
-    m3.metric("ANOVA p-value", f"{anova_p:.4g}" if pd.notna(anova_p) else "-")
+def _render_alert(kind: str, message: str):
+    valid_kinds = {"info", "success", "warning", "danger", "note"}
+    kind = kind if kind in valid_kinds else "info"
 
-    with st.expander("Interpretation", expanded=True):
-        st.write(build_numeric_categorical_interpretation(
-            group_summary=group_summary,
-            num_col=num_col,
-            cat_col=cat_col,
-            anova_p=anova_p
-        ))
-
-    st.markdown("#### Grouped Descriptive Statistics")
-    st.dataframe(group_summary, use_container_width=True)
-
-    st.markdown("#### Mean by Category")
-    fig_bar = px.bar(
-        group_summary,
-        x=cat_col,
-        y="mean",
-        title=f"Mean of {num_col} by {cat_col}"
-    )
-    st.plotly_chart(fig_bar, use_container_width=True)
-
-    st.markdown("#### Boxplot by Category")
-    fig_box = px.box(
-        temp,
-        x=cat_col,
-        y=num_col,
-        title=f"{num_col} by {cat_col}"
-    )
-    st.plotly_chart(fig_box, use_container_width=True)
-
-def build_numeric_categorical_interpretation(
-    group_summary: pd.DataFrame,
-    num_col: str,
-    cat_col: str,
-    anova_p: float
-) -> str:
-    top_row = group_summary.iloc[0]
-    bottom_row = group_summary.iloc[-1]
-
-    base = (
-        f"The highest average {num_col} appears in {top_row[cat_col]} "
-        f"(mean = {top_row['mean']:.3f}), while the lowest appears in {bottom_row[cat_col]} "
-        f"(mean = {bottom_row['mean']:.3f}). "
+    st.markdown(
+        f"""
+        <div class="bi-{kind}">
+            {message}
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-    if pd.notna(anova_p):
-        if anova_p < 0.05:
-            base += f"ANOVA suggests statistically significant mean differences across {cat_col} groups (p = {anova_p:.4g})."
-        else:
-            base += f"ANOVA does not suggest statistically significant mean differences across {cat_col} groups (p = {anova_p:.4g})."
 
-    return base
-
-def build_numeric_numeric_interpretation(
-    col_a: str,
-    col_b: str,
-    pearson_r: float,
-    pearson_p: float,
-    slope: float,
-    slope_ci_low: float,
-    slope_ci_high: float,
-    r_squared: float,
-    n: int) -> str:
-    abs_r = abs(pearson_r)
-
-    # Strength
-    if abs_r < 0.2:
-        strength = "very weak"
-    elif abs_r < 0.4:
-        strength = "weak"
-    elif abs_r < 0.6:
-        strength = "moderate"
-    elif abs_r < 0.8:
-        strength = "strong"
-    else:
-        strength = "very strong"
-
-    # Direction (handle r = 0 properly)
-    if pearson_r > 0:
-        direction = "positive"
-    elif pearson_r < 0:
-        direction = "negative"
-    else:
-        direction = "no"
-
-    # Significance
-    significance = (
-        "statistically significant"
-        if pearson_p < 0.05 else
-        "not statistically significant"
+def _render_section_title(title: str, subtitle: str = ""):
+    st.markdown(
+        f"""
+        <div class="bi-panel-title">{title}</div>
+        <div class="bi-panel-subtitle">{subtitle}</div>
+        """,
+        unsafe_allow_html=True,
     )
 
-    # Confidence interval interpretation
-    ci_text = (
-        "The slope confidence interval includes 0, so the linear effect should be interpreted cautiously."
-        if slope_ci_low <= 0 <= slope_ci_high else
-        "The slope confidence interval does not include 0, which supports a non-zero linear trend."
+
+def _render_current_config(col_a: str, col_b: str, final_mode: str, decision_source: str, badge_text: str):
+    st.markdown(
+        f"""
+        <div class="bi-card">
+            <div class="bi-panel-title">Current configuration</div>
+            <div class="bi-panel-subtitle">
+                <b>{col_a}</b> and <b>{col_b}</b> are being analyzed as <b>{final_mode}</b>.
+                Detection mode: <b>{decision_source}</b>.
+            </div>
+            <div class="bi-badge">{badge_text}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-    # Special case when no relationship
-    if direction == "no":
-        relation_text = f"No linear relationship was observed between {col_a} and {col_b}"
-    else:
-        relation_text = f"A {strength} {direction} linear relationship was observed between {col_a} and {col_b}"
 
-    return (
-        f"{relation_text} "
-        f"(Pearson r = {pearson_r:.3f}, p = {pearson_p:.4g}, n = {n}). "
-        f"The fitted regression suggests that a one-unit increase in {col_a} is associated with an average "
-        f"change of {slope:.3f} units in {col_b}. "
-        f"The model explains approximately {r_squared:.1%} of the variance in {col_b}. "
-        f"The result is {significance}. {ci_text}"
-    )
-
-def render_categorical_categorical(sa: pd.Series, sb: pd.Series, col_a: str, col_b: str):
-    st.write("**Relationship type:** Categorical vs Categorical")
-
-    temp = pd.DataFrame({
-        col_a: sa.fillna("(missing)").astype(str),
-        col_b: sb.fillna("(missing)").astype(str)
-    })
-
-    if temp.empty:
-        st.warning("No valid data available.")
-        return
-
-    ctab = pd.crosstab(temp[col_a], temp[col_b])
-
-    if ctab.empty:
-        st.warning("No valid contingency data.")
-        return
-
-    row_pct = pd.crosstab(temp[col_a], temp[col_b], normalize="index") * 100
-    col_pct = pd.crosstab(temp[col_a], temp[col_b], normalize="columns") * 100
-
-    chi2, p_value, dof, expected = stats.chi2_contingency(ctab)
-
-    n = ctab.to_numpy().sum()
-    min_dim = min(ctab.shape) - 1
-    cramers_v = np.sqrt(chi2 / (n * min_dim)) if min_dim > 0 and n > 0 else np.nan
-    low_expected = int((expected < 5).sum())
-
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Chi-square", f"{chi2:.3f}")
-    m2.metric("p-value", f"{p_value:.4g}")
-    m3.metric("Cramér's V", f"{cramers_v:.3f}" if pd.notna(cramers_v) else "-")
-    m4.metric("Low expected cells", low_expected)
-
-    with st.expander("Interpretation", expanded=True):
-        if p_value < 0.05:
-            st.write(
-                f"There is a statistically significant association between **{col_a}** and **{col_b}** "
-                f"(p = {p_value:.4g})."
-            )
-        else:
-            st.write(
-                f"No statistically significant association was detected between **{col_a}** and **{col_b}** "
-                f"(p = {p_value:.4g})."
-            )
-
-        if pd.notna(cramers_v):
-            if cramers_v < 0.1:
-                strength = "very weak"
-            elif cramers_v < 0.3:
-                strength = "weak"
-            elif cramers_v < 0.5:
-                strength = "moderate"
-            else:
-                strength = "strong"
-
-            st.write(f"Association strength based on Cramér's V: **{strength}**.")
-
-        if low_expected > 0:
-            st.write(
-                f"There are **{low_expected}** cells with expected frequency below 5, "
-                "so the chi-square approximation may be less reliable."
-            )
-        else:
-            st.write("Expected frequencies look acceptable for chi-square.")
-
-    st.markdown("#### Contingency Table")
-    st.dataframe(ctab, use_container_width=True)
-
-    st.markdown("#### Row Percentages")
-    st.dataframe(row_pct.round(2), use_container_width=True)
-
-    st.markdown("#### Column Percentages")
-    st.dataframe(col_pct.round(2), use_container_width=True)
-
-    st.markdown("#### Heatmap")
-    fig = px.imshow(
-        ctab,
-        text_auto=True,
-        aspect="auto",
-        title=f"{col_a} vs {col_b}"
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-    with st.expander("Expected Frequencies"):
-        expected_df = pd.DataFrame(expected, index=ctab.index, columns=ctab.columns)
-        st.dataframe(expected_df.round(3), use_container_width=True)
+# ============================================================
+# METADATA / SUGGESTIONS
+# ============================================================
 
 def _build_bivariate_meta_df(
     col_a: str,
@@ -277,39 +211,134 @@ def _build_bivariate_meta_df(
     total_rows: int,
     pair_missing: int,
     valid_pct: float,
-    final_mode: str
+    final_mode: str,
 ) -> pd.DataFrame:
-    return pd.DataFrame([
-        {"Property": "Variable A", "Value": col_a},
-        {"Property": "Variable B", "Value": col_b},
-        {"Property": "A original dtype", "Value": a_dtype},
-        {"Property": "B original dtype", "Value": b_dtype},
-        {"Property": "A detected type", "Value": a_detected},
-        {"Property": "B detected type", "Value": b_detected},
-        {"Property": "Final analysis mode", "Value": final_mode},
-        {"Property": "Rows", "Value": total_rows},
-        {"Property": "Valid paired rows", "Value": valid_pairs},
-        {"Property": "Rows excluded by missingness", "Value": pair_missing},
-        {"Property": "Pair completeness %", "Value": f"{valid_pct}%"},
-    ])
+    return pd.DataFrame(
+        [
+            {"Property": "Variable A", "Value": col_a},
+            {"Property": "Variable B", "Value": col_b},
+            {"Property": "A original dtype", "Value": a_dtype},
+            {"Property": "B original dtype", "Value": b_dtype},
+            {"Property": "A detected type", "Value": a_detected},
+            {"Property": "B detected type", "Value": b_detected},
+            {"Property": "Final analysis mode", "Value": final_mode},
+            {"Property": "Rows", "Value": total_rows},
+            {"Property": "Valid paired rows", "Value": valid_pairs},
+            {"Property": "Rows excluded by missingness", "Value": pair_missing},
+            {"Property": "Pair completeness %", "Value": f"{valid_pct}%"},
+        ]
+    )
 
-def render_numeric_numeric(sa: pd.Series, sb: pd.Series, col_a: str, col_b: str):
-    st.write("**Relationship type:** Numeric vs Numeric")
 
-    temp = pd.DataFrame({
-        col_a: pd.to_numeric(sa, errors="coerce"),
-        col_b: pd.to_numeric(sb, errors="coerce")
-    })
+def _build_suggested_tests_for_pair(final_mode: str) -> pd.DataFrame:
+    mapping = {
+        "Numeric vs Numeric": [
+            {
+                "Scenario": "Linear association",
+                "Suggested test / method": "Pearson correlation, scatter plot, trend line",
+                "Why": "Quantify linear relationship between two numeric variables",
+            },
+            {
+                "Scenario": "Monotonic association",
+                "Suggested test / method": "Spearman correlation",
+                "Why": "Useful when rank-order relation matters more than strict linearity",
+            },
+            {
+                "Scenario": "Prediction",
+                "Suggested test / method": "Simple linear regression",
+                "Why": "Estimate the expected change in one variable from another",
+            },
+        ],
+        "Categorical vs Categorical": [
+            {
+                "Scenario": "Association between groups",
+                "Suggested test / method": "Contingency table, chi-square test",
+                "Why": "Evaluate whether two categorical variables are independent",
+            },
+            {
+                "Scenario": "Association strength",
+                "Suggested test / method": "Cramér's V",
+                "Why": "Measure how strong the categorical association is",
+            },
+            {
+                "Scenario": "Group composition",
+                "Suggested test / method": "Row/column percentages, stacked bars",
+                "Why": "Compare category distribution across groups",
+            },
+        ],
+        "Numeric vs Categorical": [
+            {
+                "Scenario": "Group comparison",
+                "Suggested test / method": "Boxplot, grouped means, grouped medians",
+                "Why": "Compare numeric distributions across categories",
+            },
+            {
+                "Scenario": "Two groups",
+                "Suggested test / method": "t-test",
+                "Why": "Test whether two group means differ",
+            },
+            {
+                "Scenario": "Three or more groups",
+                "Suggested test / method": "ANOVA",
+                "Why": "Test whether at least one group mean differs",
+            },
+        ],
+    }
 
-    n_before = len(temp)
-    temp = temp.dropna()
-    n_after = len(temp)
+    return pd.DataFrame(mapping.get(final_mode, []))
 
-    st.caption(f"Valid observations used: {n_after} / {n_before}")
+
+# ============================================================
+# NUMERIC VS NUMERIC
+# ============================================================
+
+def build_numeric_numeric_interpretation(
+    col_a: str,
+    col_b: str,
+    pearson_r: float,
+    pearson_p: float,
+    slope: float,
+    slope_ci_low: float,
+    slope_ci_high: float,
+    r_squared: float,
+    n: int,
+) -> str:
+    strength = _association_strength_from_correlation(pearson_r)
+
+    if pearson_r > 0:
+        direction = "positive"
+    elif pearson_r < 0:
+        direction = "negative"
+    else:
+        direction = "no clear"
+
+    significance = "statistically significant" if pearson_p < 0.05 else "not statistically significant"
+
+    if slope_ci_low <= 0 <= slope_ci_high:
+        ci_text = "The slope confidence interval includes 0, so the linear effect should be interpreted cautiously."
+    else:
+        ci_text = "The slope confidence interval does not include 0, which supports a non-zero linear trend."
+
+    return (
+        f"A <b>{strength}</b> {direction} linear relationship was observed between <b>{col_a}</b> and <b>{col_b}</b> "
+        f"(Pearson r = <b>{pearson_r:.3f}</b>, p = <b>{pearson_p:.4g}</b>, n = <b>{n}</b>). "
+        f"The fitted regression suggests that a one-unit increase in <b>{col_a}</b> is associated with an average "
+        f"change of <b>{slope:.3f}</b> units in <b>{col_b}</b>. "
+        f"The model explains approximately <b>{r_squared:.1%}</b> of the variance in <b>{col_b}</b>. "
+        f"The result is <b>{significance}</b>. {ci_text}"
+    )
+
+
+def _compute_numeric_numeric(sa: pd.Series, sb: pd.Series, col_a: str, col_b: str):
+    temp = pd.DataFrame(
+        {
+            col_a: pd.to_numeric(sa, errors="coerce"),
+            col_b: pd.to_numeric(sb, errors="coerce"),
+        }
+    ).dropna()
 
     if len(temp) < 3:
-        st.warning("Not enough valid numeric observations.")
-        return
+        return None
 
     x = temp[col_a]
     y = temp[col_b]
@@ -321,428 +350,569 @@ def render_numeric_numeric(sa: pd.Series, sb: pd.Series, col_a: str, col_b: str)
     X = sm.add_constant(x)
     model = sm.OLS(y, X).fit()
 
-    slope = model.params[col_a]
-    intercept = model.params["const"]
-    r_squared = model.rsquared
-    slope_p = model.pvalues[col_a]
+    slope = float(model.params[col_a])
+    intercept = float(model.params["const"])
+    r_squared = float(model.rsquared)
+    slope_p = float(model.pvalues[col_a])
 
     conf_int = model.conf_int()
-    slope_ci_low = conf_int.loc[col_a, 0]
-    slope_ci_high = conf_int.loc[col_a, 1]
+    slope_ci_low = float(conf_int.loc[col_a, 0])
+    slope_ci_high = float(conf_int.loc[col_a, 1])
+
+    return {
+        "temp": temp,
+        "n": len(temp),
+        "pearson_r": pearson_r,
+        "pearson_p": pearson_p,
+        "spearman_r": spearman_r,
+        "spearman_p": spearman_p,
+        "covariance": cov_val,
+        "model": model,
+        "slope": slope,
+        "intercept": intercept,
+        "r_squared": r_squared,
+        "slope_p": slope_p,
+        "slope_ci_low": slope_ci_low,
+        "slope_ci_high": slope_ci_high,
+    }
+
+
+def render_numeric_numeric(sa: pd.Series, sb: pd.Series, col_a: str, col_b: str):
+    _render_section_title(
+        "Numeric vs Numeric",
+        "Correlation, regression trend, variance explained, and residual diagnostics.",
+    )
+
+    result = _compute_numeric_numeric(sa, sb, col_a, col_b)
+
+    if result is None:
+        _render_alert("warning", "Not enough valid numeric observations. At least 3 paired numeric values are required.")
+        return None
 
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Pearson r", f"{pearson_r:.3f}")
-    m2.metric("Spearman ρ", f"{spearman_r:.3f}")
-    m3.metric("R²", f"{r_squared:.3f}")
-    m4.metric("Covariance", f"{cov_val:.3f}")
 
-    m5, m6, m7, m8 = st.columns(4)
-    m5.metric("Slope", f"{slope:.3f}")
-    m6.metric("Intercept", f"{intercept:.3f}")
-    m7.metric("Slope p-value", f"{slope_p:.4g}")
-    m8.metric("95% CI slope", f"[{slope_ci_low:.3f}, {slope_ci_high:.3f}]")
+    with m1:
+        _render_bi_kpi("Pearson r", _format_number(result["pearson_r"]), _association_strength_from_correlation(result["pearson_r"]))
 
-    with st.expander("Interpretation", expanded=True):
-        st.write(build_numeric_numeric_interpretation(
-            col_a=col_a,
-            col_b=col_b,
-            pearson_r=pearson_r,
-            pearson_p=pearson_p,
-            slope=slope,
-            slope_ci_low=slope_ci_low,
-            slope_ci_high=slope_ci_high,
-            r_squared=r_squared,
-            n=n_after
-        ))
-        st.markdown("#### Prediction Formula")
-        st.code(build_prediction_formula(model))
+    with m2:
+        _render_bi_kpi("Spearman ρ", _format_number(result["spearman_r"]), "Rank correlation")
 
-    st.markdown("#### Scatter Plot with Regression Line")
-    fig = px.scatter(
-        temp,
-        x=col_a,
-        y=col_b,
-        trendline="ols",
-        title=f"{col_a} vs {col_b}"
+    with m3:
+        _render_bi_kpi("R²", _format_number(result["r_squared"]), "Variance explained")
+
+    with m4:
+        _render_bi_kpi("Slope", _format_number(result["slope"]), f"p = {_format_number(result['slope_p'], 4)}")
+
+    tabs = st.tabs(["Scatter", "Residuals", "Details"])
+
+    with tabs[0]:
+        _render_section_title("Scatter plot with regression line")
+
+        fig = px.scatter(
+            result["temp"],
+            x=col_a,
+            y=col_b,
+            trendline="ols",
+            labels={col_a: col_a, col_b: col_b},
+        )
+        fig = _plot_layout(fig, 440, col_a, col_b)
+        st.plotly_chart(fig, use_container_width=True)
+
+    with tabs[1]:
+        _render_section_title(
+            "Residual plot",
+            "Residuals should ideally be scattered around zero without a strong pattern.",
+        )
+
+        residual_df = pd.DataFrame(
+            {
+                "Fitted": result["model"].fittedvalues,
+                "Residuals": result["model"].resid,
+            }
+        )
+
+        fig_res = px.scatter(
+            residual_df,
+            x="Fitted",
+            y="Residuals",
+            labels={"Fitted": "Fitted values", "Residuals": "Residuals"},
+        )
+        fig_res.add_hline(y=0)
+        fig_res = _plot_layout(fig_res, 420, "Fitted values", "Residuals")
+        st.plotly_chart(fig_res, use_container_width=True)
+
+    with tabs[2]:
+        left, right = st.columns([1.15, 1])
+
+        with left:
+            _render_section_title("Detailed numeric results")
+
+            details_df = pd.DataFrame(
+                [
+                    {"Metric": "Sample size", "Value": result["n"]},
+                    {"Metric": "Pearson r", "Value": result["pearson_r"]},
+                    {"Metric": "Pearson p-value", "Value": result["pearson_p"]},
+                    {"Metric": "Spearman rho", "Value": result["spearman_r"]},
+                    {"Metric": "Spearman p-value", "Value": result["spearman_p"]},
+                    {"Metric": "Covariance", "Value": result["covariance"]},
+                    {"Metric": "Slope", "Value": result["slope"]},
+                    {"Metric": "Intercept", "Value": result["intercept"]},
+                    {"Metric": "Slope p-value", "Value": result["slope_p"]},
+                    {"Metric": "Slope CI low", "Value": result["slope_ci_low"]},
+                    {"Metric": "Slope CI high", "Value": result["slope_ci_high"]},
+                    {"Metric": "R-squared", "Value": result["r_squared"]},
+                ]
+            )
+
+            st.dataframe(details_df, use_container_width=True, hide_index=True)
+
+        with right:
+            _render_section_title("Prediction formula")
+            st.code(build_prediction_formula(result["model"]))
+
+            interpretation = build_numeric_numeric_interpretation(
+                col_a=col_a,
+                col_b=col_b,
+                pearson_r=result["pearson_r"],
+                pearson_p=result["pearson_p"],
+                slope=result["slope"],
+                slope_ci_low=result["slope_ci_low"],
+                slope_ci_high=result["slope_ci_high"],
+                r_squared=result["r_squared"],
+                n=result["n"],
+            )
+
+            _render_alert("info", interpretation)
+
+    return result
+
+
+# ============================================================
+# NUMERIC VS CATEGORICAL
+# ============================================================
+
+def build_numeric_categorical_interpretation(
+    group_summary: pd.DataFrame,
+    num_col: str,
+    cat_col: str,
+    anova_p: float,
+) -> str:
+    top_row = group_summary.iloc[0]
+    bottom_row = group_summary.iloc[-1]
+
+    base = (
+        f"The highest average <b>{num_col}</b> appears in <b>{top_row[cat_col]}</b> "
+        f"(mean = <b>{top_row['mean']:.3f}</b>), while the lowest appears in <b>{bottom_row[cat_col]}</b> "
+        f"(mean = <b>{bottom_row['mean']:.3f}</b>). "
     )
-    st.plotly_chart(fig, use_container_width=True)
 
-    st.markdown("#### Residual Plot")
-    residual_df = pd.DataFrame({
-        "Fitted": model.fittedvalues,
-        "Residuals": model.resid
-    })
-    fig_res = px.scatter(
-        residual_df,
-        x="Fitted",
-        y="Residuals",
-        title=f"Residual Plot: {col_b} ~ {col_a}"
-    )
-    fig_res.add_hline(y=0)
-    st.plotly_chart(fig_res, use_container_width=True)
+    if pd.notna(anova_p):
+        if anova_p < 0.05:
+            base += f"ANOVA suggests statistically significant mean differences across <b>{cat_col}</b> groups (p = <b>{anova_p:.4g}</b>)."
+        else:
+            base += f"ANOVA does not suggest statistically significant mean differences across <b>{cat_col}</b> groups (p = <b>{anova_p:.4g}</b>)."
 
-    with st.expander("Detailed Results"):
-        details_df = pd.DataFrame({
-            "Metric": [
-                "Sample size",
-                "Pearson r",
-                "Pearson p-value",
-                "Spearman rho",
-                "Spearman p-value",
-                "Slope",
-                "Intercept",
-                "Slope CI low",
-                "Slope CI high",
-                "R-squared"
-            ],
-            "Value": [
-                n_after,
-                pearson_r,
-                pearson_p,
-                spearman_r,
-                spearman_p,
-                slope,
-                intercept,
-                slope_ci_low,
-                slope_ci_high,
-                r_squared
-            ]
-        })
-        st.dataframe(details_df, use_container_width=True)
+    return base
 
-def _render_bi_kpi(title: str, value: str, subtitle: str = "", accent: str = "#2563eb"):
-    st.markdown(
-        f"""
-        <div class="bi-card bi-kpi">
-            <div class="bi-kpi-line" style="background:{accent};"></div>
-            <div class="bi-kpi-title">{title}</div>
-            <div class="bi-kpi-value">{value}</div>
-            <div class="bi-kpi-subtitle">{subtitle}</div>
-        </div>
-        """,
-        unsafe_allow_html=True
+
+def _compute_numeric_categorical(sa, sb, col_a, col_b, a_is_num):
+    if a_is_num:
+        num_col = col_a
+        cat_col = col_b
+        temp = pd.DataFrame(
+            {
+                "value": pd.to_numeric(sa, errors="coerce"),
+                "category": _normalize_missing(sb).fillna("(missing)").astype(str),
+            }
+        )
+    else:
+        num_col = col_b
+        cat_col = col_a
+        temp = pd.DataFrame(
+            {
+                "value": pd.to_numeric(sb, errors="coerce"),
+                "category": _normalize_missing(sa).fillna("(missing)").astype(str),
+            }
+        )
+
+    n_before = len(temp)
+    temp = temp.dropna(subset=["value"])
+    n_after = len(temp)
+
+    if temp.empty or temp["category"].nunique() < 2:
+        return None
+
+    group_summary = (
+        temp.groupby("category")["value"]
+        .agg(["count", "mean", "median", "min", "max", "std"])
+        .reset_index()
+        .rename(columns={"category": cat_col})
+        .sort_values("mean", ascending=False)
     )
 
-def _quality_badge_from_pair_validity(valid_pct: float) -> tuple[str, str]:
-    if valid_pct >= 95:
-        return "High readiness", "#16a34a"
-    if valid_pct >= 80:
-        return "Good readiness", "#2563eb"
-    if valid_pct >= 60:
-        return "Moderate readiness", "#f59e0b"
-    return "Low readiness", "#dc2626"
+    grouped = [g["value"].values for _, g in temp.groupby("category")]
+    anova_p = np.nan
 
-def _ensure_bivariate_styles():
-    st.markdown("""
-    <style>
-    .bi-header {
-        padding: 1.15rem 1.2rem 1rem 1.2rem;
-        border-radius: 20px;
-        background: linear-gradient(135deg, #ffffff 0%, #f8fbff 55%, #eef6ff 100%);
-        border: 1px solid #e5e7eb;
-        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
-        margin-bottom: 1rem;
-    }
-    .bi-title {
-        font-size: 1.55rem;
-        font-weight: 750;
-        color: #0f172a;
-        margin-bottom: 0.2rem;
-        letter-spacing: -0.02em;
-    }
-    .bi-subtitle {
-        color: #64748b;
-        font-size: 0.95rem;
-        line-height: 1.5;
-    }
-    .bi-card {
-        background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
-        border: 1px solid #e5e7eb;
-        border-radius: 18px;
-        padding: 0.9rem 1rem;
-        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.045);
-    }
-    .bi-kpi {
-        min-height: 112px;
-        position: relative;
-        overflow: hidden;
-    }
-    .bi-kpi-line {
-        height: 4px;
-        width: 100%;
-        border-radius: 999px;
-        margin-bottom: 0.75rem;
-    }
-    .bi-kpi-title {
-        font-size: 0.84rem;
-        font-weight: 600;
-        color: #64748b;
-        margin-bottom: 0.3rem;
-    }
-    .bi-kpi-value {
-        font-size: 1.45rem;
-        line-height: 1.15;
-        font-weight: 800;
-        color: #0f172a;
-        margin-bottom: 0.15rem;
-    }
-    .bi-kpi-subtitle {
-        font-size: 0.81rem;
-        color: #64748b;
-    }
-    .bi-panel-title {
-        font-size: 1.02rem;
-        font-weight: 700;
-        color: #0f172a;
-        margin-bottom: 0.45rem;
-    }
-    .bi-panel-subtitle {
-        font-size: 0.88rem;
-        color: #64748b;
-        margin-bottom: 0.75rem;
-    }
-    .bi-info {
-        border-left: 4px solid #2563eb;
-        background: #f8fbff;
-        padding: 0.85rem 1rem;
-        border-radius: 12px;
-        margin-bottom: 0.65rem;
-        color: #0f172a;
-        font-size: 0.93rem;
-    }
-    .bi-success {
-        border-left: 4px solid #16a34a;
-        background: #f6fdf8;
-        padding: 0.85rem 1rem;
-        border-radius: 12px;
-        margin-bottom: 0.65rem;
-        color: #0f172a;
-        font-size: 0.93rem;
-    }
-    .bi-warning {
-        border-left: 4px solid #f59e0b;
-        background: #fffaf0;
-        padding: 0.85rem 1rem;
-        border-radius: 12px;
-        margin-bottom: 0.65rem;
-        color: #0f172a;
-        font-size: 0.93rem;
-    }
-    .bi-danger {
-        border-left: 4px solid #dc2626;
-        background: #fff7f7;
-        padding: 0.85rem 1rem;
-        border-radius: 12px;
-        margin-bottom: 0.65rem;
-        color: #0f172a;
-        font-size: 0.93rem;
-    }
-    .bi-badge {
-        display: inline-block;
-        padding: 0.28rem 0.6rem;
-        border-radius: 999px;
-        font-size: 0.78rem;
-        font-weight: 700;
-        margin-top: 0.35rem;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+    if len(grouped) >= 2 and all(len(g) > 1 for g in grouped):
+        _, anova_p = stats.f_oneway(*grouped)
 
-def _detected_pair_label(a_is_num: bool, b_is_num: bool) -> str:
-    if a_is_num and b_is_num:
-        return "Numeric vs Numeric"
-    if (not a_is_num) and (not b_is_num):
-        return "Categorical vs Categorical"
-    return "Numeric vs Categorical"
-
-def _build_suggested_tests_for_pair(final_mode: str) -> pd.DataFrame:
-    mapping = {
-        "Numeric vs Numeric": [
-            {
-                "Scenario": "Linear association",
-                "Suggested test / method": "Pearson correlation, scatter plot, trend line",
-                "Why": "Quantify linear relationship between two continuous variables"
-            },
-            {
-                "Scenario": "Monotonic non-linear association",
-                "Suggested test / method": "Spearman correlation",
-                "Why": "Useful when rank-order relation matters more than strict linearity"
-            },
-            {
-                "Scenario": "Predictive relationship",
-                "Suggested test / method": "Simple linear regression",
-                "Why": "Estimate the effect of one numeric variable on the other"
-            },
-        ],
-        "Categorical vs Categorical": [
-            {
-                "Scenario": "Association between categories",
-                "Suggested test / method": "Contingency table, chi-square test",
-                "Why": "Evaluate dependence between categorical variables"
-            },
-            {
-                "Scenario": "Strength of association",
-                "Suggested test / method": "Cramér's V",
-                "Why": "Measure the effect size of categorical association"
-            },
-            {
-                "Scenario": "Visual structure",
-                "Suggested test / method": "Stacked bar chart, normalized proportions",
-                "Why": "Reveal how categories distribute across groups"
-            },
-        ],
-        "Numeric vs Categorical": [
-            {
-                "Scenario": "Group comparison",
-                "Suggested test / method": "Boxplot, grouped summary statistics",
-                "Why": "Compare the numeric distribution across categories"
-            },
-            {
-                "Scenario": "Two groups only",
-                "Suggested test / method": "t-test",
-                "Why": "Test whether the group means differ significantly"
-            },
-            {
-                "Scenario": "Three or more groups",
-                "Suggested test / method": "ANOVA",
-                "Why": "Assess whether at least one group mean differs from the others"
-            },
-        ],
+    return {
+        "temp": temp,
+        "num_col": num_col,
+        "cat_col": cat_col,
+        "n_before": n_before,
+        "n_after": n_after,
+        "groups": int(temp["category"].nunique()),
+        "group_summary": group_summary,
+        "anova_p": anova_p,
     }
-    return pd.DataFrame(mapping.get(final_mode, []))
 
-def render_heatmap_table(ctab: pd.DataFrame, title: str):
-    import plotly.express as px
 
-    fig = px.imshow(
-        ctab,
-        text_auto=True,
-        aspect="auto",
-        title=f"Heatmap: {title}"
+def render_numeric_categorical(sa: pd.Series, sb: pd.Series, col_a: str, col_b: str, a_is_num: bool):
+    _render_section_title(
+        "Numeric vs Categorical",
+        "Grouped summaries, mean comparison, distribution by category, and ANOVA when applicable.",
     )
-    st.plotly_chart(fig, use_container_width=True)
+
+    result = _compute_numeric_categorical(sa, sb, col_a, col_b, a_is_num)
+
+    if result is None:
+        _render_alert("warning", "Not enough valid grouped data. This comparison requires a numeric variable and at least two category groups.")
+        return None
+
+    m1, m2, m3 = st.columns(3)
+
+    with m1:
+        _render_bi_kpi("Groups", _format_int(result["groups"]), result["cat_col"])
+
+    with m2:
+        _render_bi_kpi("Valid rows", _format_int(result["n_after"]), f"of {result['n_before']:,}")
+
+    with m3:
+        anova_value = f"{result['anova_p']:.4g}" if pd.notna(result["anova_p"]) else "—"
+        _render_bi_kpi("ANOVA p-value", anova_value, "Mean difference test")
+
+    tabs = st.tabs(["Summary", "Mean chart", "Boxplot"])
+
+    with tabs[0]:
+        left, right = st.columns([1.25, 1])
+
+        with left:
+            _render_section_title("Grouped descriptive statistics")
+            st.dataframe(result["group_summary"], use_container_width=True, hide_index=True)
+
+        with right:
+            _render_section_title("Interpretation")
+
+            interpretation = build_numeric_categorical_interpretation(
+                group_summary=result["group_summary"],
+                num_col=result["num_col"],
+                cat_col=result["cat_col"],
+                anova_p=result["anova_p"],
+            )
+
+            _render_alert("info", interpretation)
+
+            if result["groups"] > 20:
+                _render_alert(
+                    "warning",
+                    "There are many groups. Consider grouping rare categories for a cleaner comparison.",
+                )
+
+    with tabs[1]:
+        _render_section_title("Mean by category")
+
+        fig_bar = px.bar(
+            result["group_summary"].sort_values("mean", ascending=True),
+            x="mean",
+            y=result["cat_col"],
+            orientation="h",
+            text="mean",
+            labels={"mean": f"Mean of {result['num_col']}", result["cat_col"]: result["cat_col"]},
+        )
+        fig_bar.update_traces(texttemplate="%{text:.2f}", textposition="outside")
+        fig_bar = _plot_layout(fig_bar, 430, f"Mean of {result['num_col']}", result["cat_col"])
+        st.plotly_chart(fig_bar, use_container_width=True)
+
+    with tabs[2]:
+        _render_section_title("Distribution by category")
+
+        fig_box = px.box(
+            result["temp"],
+            x="category",
+            y="value",
+            points="outliers",
+            labels={"category": result["cat_col"], "value": result["num_col"]},
+        )
+        fig_box = _plot_layout(fig_box, 440, result["cat_col"], result["num_col"])
+        st.plotly_chart(fig_box, use_container_width=True)
+
+    return result
+
+
+# ============================================================
+# CATEGORICAL VS CATEGORICAL
+# ============================================================
 
 def build_categorical_categorical_interpretation(
     col_a: str,
     col_b: str,
     p_value: float,
     cramers_v: float,
-    low_expected: int
+    low_expected: int,
 ) -> str:
-    if pd.isna(cramers_v):
-        strength = "undefined"
-    elif cramers_v < 0.1:
-        strength = "very weak"
-    elif cramers_v < 0.3:
-        strength = "weak"
-    elif cramers_v < 0.5:
-        strength = "moderate"
-    else:
-        strength = "strong"
+    strength = _association_strength_from_cramers_v(cramers_v)
 
-    significance = (
-        "a statistically significant association"
-        if p_value < 0.05 else
-        "no statistically significant association"
-    )
+    if p_value < 0.05:
+        significance = "a statistically significant association"
+    else:
+        significance = "no statistically significant association"
 
     expected_note = (
-        f" There are {low_expected} cells with expected frequency below 5, so the chi-square approximation may be less reliable."
-        if low_expected > 0 else
-        " Expected frequencies look acceptable for the chi-square approximation."
+        f"There are <b>{low_expected}</b> cells with expected frequency below 5, so the chi-square approximation may be less reliable."
+        if low_expected > 0
+        else "Expected frequencies look acceptable for the chi-square approximation."
     )
 
     return (
-        f"The analysis suggests {significance} between {col_a} and {col_b} "
-        f"(Chi-square test, p = {p_value:.4g}). The association strength based on Cramér's V is {strength}."
+        f"The analysis suggests <b>{significance}</b> between <b>{col_a}</b> and <b>{col_b}</b> "
+        f"(Chi-square p = <b>{p_value:.4g}</b>). "
+        f"The association strength based on Cramér's V is <b>{strength}</b>. "
         f"{expected_note}"
     )
 
-def build_numeric_numeric_interpretation(
+
+def _compute_categorical_categorical(sa: pd.Series, sb: pd.Series, col_a: str, col_b: str):
+    temp = pd.DataFrame(
+        {
+            col_a: _normalize_missing(sa).fillna("(missing)").astype(str),
+            col_b: _normalize_missing(sb).fillna("(missing)").astype(str),
+        }
+    )
+
+    if temp.empty:
+        return None
+
+    ctab = pd.crosstab(temp[col_a], temp[col_b])
+
+    if ctab.empty:
+        return None
+
+    row_pct = pd.crosstab(temp[col_a], temp[col_b], normalize="index") * 100
+    col_pct = pd.crosstab(temp[col_a], temp[col_b], normalize="columns") * 100
+
+    chi2, p_value, dof, expected = stats.chi2_contingency(ctab)
+
+    n = ctab.to_numpy().sum()
+    min_dim = min(ctab.shape) - 1
+    cramers_v = np.sqrt(chi2 / (n * min_dim)) if min_dim > 0 and n > 0 else np.nan
+    low_expected = int((expected < 5).sum())
+
+    expected_df = pd.DataFrame(expected, index=ctab.index, columns=ctab.columns)
+
+    return {
+        "temp": temp,
+        "ctab": ctab,
+        "row_pct": row_pct,
+        "col_pct": col_pct,
+        "chi2": chi2,
+        "p_value": p_value,
+        "dof": dof,
+        "expected": expected_df,
+        "cramers_v": cramers_v,
+        "low_expected": low_expected,
+    }
+
+
+def render_categorical_categorical(sa: pd.Series, sb: pd.Series, col_a: str, col_b: str):
+    _render_section_title(
+        "Categorical vs Categorical",
+        "Contingency tables, normalized proportions, chi-square testing, and association strength.",
+    )
+
+    result = _compute_categorical_categorical(sa, sb, col_a, col_b)
+
+    if result is None:
+        _render_alert("warning", "No valid contingency data is available for this pair.")
+        return None
+
+    m1, m2, m3, m4 = st.columns(4)
+
+    with m1:
+        _render_bi_kpi("Chi-square", _format_number(result["chi2"]), "Association test")
+
+    with m2:
+        _render_bi_kpi("p-value", _format_number(result["p_value"], 4), "Significance")
+
+    with m3:
+        _render_bi_kpi("Cramér's V", _format_number(result["cramers_v"]), _association_strength_from_cramers_v(result["cramers_v"]))
+
+    with m4:
+        _render_bi_kpi("Low expected cells", _format_int(result["low_expected"]), "Reliability check")
+
+    tabs = st.tabs(["Counts", "Percentages", "Heatmap", "Expected"])
+
+    with tabs[0]:
+        left, right = st.columns([1.25, 1])
+
+        with left:
+            _render_section_title("Contingency table")
+            st.dataframe(result["ctab"], use_container_width=True)
+
+        with right:
+            _render_section_title("Interpretation")
+            interpretation = build_categorical_categorical_interpretation(
+                col_a=col_a,
+                col_b=col_b,
+                p_value=result["p_value"],
+                cramers_v=result["cramers_v"],
+                low_expected=result["low_expected"],
+            )
+            _render_alert("info", interpretation)
+
+    with tabs[1]:
+        c1, c2 = st.columns(2)
+
+        with c1:
+            _render_section_title("Row percentages")
+            st.dataframe(result["row_pct"].round(2), use_container_width=True)
+
+        with c2:
+            _render_section_title("Column percentages")
+            st.dataframe(result["col_pct"].round(2), use_container_width=True)
+
+    with tabs[2]:
+        _render_section_title("Heatmap")
+
+        fig = px.imshow(
+            result["ctab"],
+            text_auto=True,
+            aspect="auto",
+            labels=dict(color="Count"),
+        )
+        fig = _plot_layout(fig, 460, col_b, col_a)
+        st.plotly_chart(fig, use_container_width=True)
+
+    with tabs[3]:
+        _render_section_title(
+            "Expected frequencies",
+            "Used internally by the chi-square test. Very low expected counts can reduce reliability.",
+        )
+        st.dataframe(result["expected"].round(3), use_container_width=True)
+
+    return result
+
+
+# ============================================================
+# MAIN INTERPRETATION / NEXT STEPS
+# ============================================================
+
+def _build_pair_interpretation(
     col_a: str,
     col_b: str,
-    pearson_r: float,
-    pearson_p: float,
-    slope: float,
-    slope_ci_low: float,
-    slope_ci_high: float,
-    r_squared: float,
-    n: int
-) -> str:
-    abs_r = abs(pearson_r)
+    final_mode: str,
+    mode: str,
+    valid_pairs: int,
+    total_rows: int,
+    valid_pct: float,
+    a_unique: int,
+    b_unique: int,
+) -> list[str]:
+    insights = [
+        f"The selected pair is <b>{col_a}</b> and <b>{col_b}</b>, with <b>{valid_pairs:,}</b> valid paired observations out of <b>{total_rows:,}</b> total rows.",
+    ]
 
-    if abs_r < 0.2:
-        strength = "very weak"
-    elif abs_r < 0.4:
-        strength = "weak"
-    elif abs_r < 0.6:
-        strength = "moderate"
-    elif abs_r < 0.8:
-        strength = "strong"
-    else:
-        strength = "very strong"
+    if final_mode == "Numeric vs Numeric":
+        insights.append(
+            "Both variables are treated as numeric. The main focus is correlation, trend direction, regression fit, and possible outliers."
+        )
 
-    direction = "positive" if pearson_r > 0 else "negative"
+        if a_unique <= 5 or b_unique <= 5:
+            insights.append(
+                "At least one numeric variable has very few distinct values, so the relationship may behave more like an ordinal comparison."
+            )
 
-    significance = (
-        "statistically significant"
-        if pearson_p < 0.05 else
-        "not statistically significant"
+    elif final_mode == "Categorical vs Categorical":
+        insights.append(
+            "Both variables are treated as categorical. The main focus is whether category membership in one variable is associated with the other."
+        )
+
+        if a_unique > 20 or b_unique > 20:
+            insights.append(
+                "At least one variable has many categories, which can create sparse contingency tables and crowded visuals."
+            )
+        else:
+            insights.append(
+                "The category structure appears manageable for contingency tables, proportions, and association testing."
+            )
+
+    elif final_mode == "Numeric vs Categorical":
+        insights.append(
+            "This pair is treated as numeric versus categorical. The main focus is whether the numeric distribution changes across groups."
+        )
+
+        if max(a_unique, b_unique) > 20:
+            insights.append(
+                "One side may have many levels, so group summaries may be clearer after grouping rare categories."
+            )
+
+    if valid_pct < 80:
+        insights.append(
+            "Pair completeness is reduced, so the relationship may reflect a filtered subset rather than the full dataset."
+        )
+
+    insights.append(
+        f"The final analysis mode comes from <b>{'automatic detection' if mode == 'Auto' else 'manual override'}</b>, so interpretation should match the intended analytical role of each variable."
     )
 
-    ci_text = (
-        "The slope confidence interval includes 0, so the linear effect should be interpreted cautiously."
-        if slope_ci_low <= 0 <= slope_ci_high else
-        "The slope confidence interval does not include 0, which supports a non-zero linear trend."
-    )
-
-    return (
-        f"A {strength} {direction} linear relationship was observed between {col_a} and {col_b} "
-        f"(Pearson r = {pearson_r:.3f}, p = {pearson_p:.4g}, n = {n}). "
-        f"The fitted regression suggests that a one-unit increase in {col_a} is associated with an average "
-        f"change of {slope:.3f} units in {col_b}. The model explains approximately {r_squared:.1%} "
-        f"of the variance in {col_b}. The result is {significance}. {ci_text}"
-    )
-
-def render_boxplot_by_category(temp: pd.DataFrame, cat_name: str, num_name: str):
-    import plotly.express as px
-
-    fig = px.box(
-        temp,
-        x="category",
-        y="value",
-        title=f"{num_name} distribution by {cat_name}",
-        labels={"category": cat_name, "value": num_name}
-    )
-    st.plotly_chart(fig, use_container_width=True)
+    return insights
 
 
-def interpret_correlation(value):
-    if pd.isna(value):
-        return "undefined"
-    abs_val = abs(value)
-    if abs_val < 0.2:
-        return "very weak"
-    if abs_val < 0.4:
-        return "weak"
-    if abs_val < 0.6:
-        return "moderate"
-    if abs_val < 0.8:
-        return "strong"
-    return "very strong"
+def _build_workflow_steps(final_mode: str) -> list[str]:
+    if final_mode == "Numeric vs Numeric":
+        return [
+            "Inspect the scatter plot for linearity, clusters, curvature, and extreme points.",
+            "Compare Pearson and Spearman correlations to understand linear versus rank-based association.",
+            "Use the regression line if prediction or trend estimation matters.",
+            "Review residuals to check whether the linear model looks reasonable.",
+        ]
+
+    if final_mode == "Categorical vs Categorical":
+        return [
+            "Start with the contingency table of counts.",
+            "Inspect row and column percentages to understand category composition.",
+            "Use chi-square to test whether the variables appear dependent.",
+            "Use Cramér's V to judge the strength of the association.",
+        ]
+
+    if final_mode == "Numeric vs Categorical":
+        return [
+            "Inspect grouped summaries before interpreting statistical tests.",
+            "Use boxplots to compare distribution, spread, and outliers across groups.",
+            "Use ANOVA when there are three or more groups and assumptions are acceptable.",
+            "If there are many rare categories, consolidate them before inference.",
+        ]
+
+    return []
+
+
+# ============================================================
+# MAIN COMPONENT
+# ============================================================
 
 def render_bivariate_analysis(df: pd.DataFrame, cols_for_stats: list[str]):
-    _ensure_bivariate_styles()
-
-    st.markdown("""
-    <div class="bi-header">
-        <div class="bi-title">Bivariate analysis</div>
-        <div class="bi-subtitle">
-            Pairwise analysis between two selected variables with automatic type detection,
-            readiness checks, structural interpretation, and method-specific diagnostics.
+    st.markdown(
+        """
+        <div class="bi-header">
+            <div class="bi-title">Bivariate analysis</div>
+            <div class="bi-subtitle">
+                Select two variables and inspect their relationship with automatic type detection,
+                readiness checks, interpretation, and method-specific diagnostics.
+            </div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True,
+    )
 
     if df is None or df.empty:
         st.warning("No valid dataframe is available for bivariate analysis.")
@@ -753,14 +923,22 @@ def render_bivariate_analysis(df: pd.DataFrame, cols_for_stats: list[str]):
         return
 
     valid_cols = [c for c in cols_for_stats if c in df.columns]
+
     if len(valid_cols) < 2:
         st.warning("At least two valid columns are required for bivariate analysis.")
         return
 
-    c1, c2, c3 = st.columns([1, 1, 1.2])
+    st.markdown('<div class="bi-toolbar">', unsafe_allow_html=True)
+
+    c1, c2, c3 = st.columns([1.2, 1.2, 1.1])
 
     with c1:
-        col_a = st.selectbox("Variable A", valid_cols, key="biv_col_a")
+        col_a = st.selectbox(
+            "Variable A",
+            valid_cols,
+            key="biv_col_a",
+            help="First variable in the relationship.",
+        )
 
     with c2:
         default_index_b = 1 if len(valid_cols) > 1 else 0
@@ -768,7 +946,8 @@ def render_bivariate_analysis(df: pd.DataFrame, cols_for_stats: list[str]):
             "Variable B",
             valid_cols,
             index=default_index_b,
-            key="biv_col_b"
+            key="biv_col_b",
+            help="Second variable in the relationship.",
         )
 
     with c3:
@@ -778,20 +957,35 @@ def render_bivariate_analysis(df: pd.DataFrame, cols_for_stats: list[str]):
                 "Auto",
                 "Numeric vs Numeric",
                 "Categorical vs Categorical",
-                "Numeric vs Categorical"
+                "Numeric vs Categorical",
             ],
-            key="biv_mode"
+            key="biv_mode",
+            help="Use Auto unless the detected type does not match your intended analysis.",
         )
 
+    st.markdown(
+        """
+        <div class="bi-small-muted">
+            Auto mode chooses the relationship type from detected column types. You can override it when the analytical meaning is different from the stored data type.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
     if col_a == col_b:
-        st.info("Choose two different variables.")
+        _render_alert("info", "Choose two different variables to run a bivariate analysis.")
         return
 
-    sa = df[col_a]
-    sb = df[col_b]
+    sa_raw = df[col_a]
+    sb_raw = df[col_b]
 
-    a_is_num, sa_num = detect_is_numeric(sa)
-    b_is_num, sb_num = detect_is_numeric(sb)
+    sa = _normalize_missing(sa_raw)
+    sb = _normalize_missing(sb_raw)
+
+    a_is_num, _ = detect_is_numeric(sa)
+    b_is_num, _ = detect_is_numeric(sb)
 
     auto_mode = _detected_pair_label(a_is_num, b_is_num)
 
@@ -812,186 +1006,184 @@ def render_bivariate_analysis(df: pd.DataFrame, cols_for_stats: list[str]):
 
     a_non_null = int(sa.notna().sum())
     b_non_null = int(sb.notna().sum())
-
     a_unique = int(sa.nunique(dropna=True))
     b_unique = int(sb.nunique(dropna=True))
 
     a_label = "Numeric" if a_is_num else "Categorical"
     b_label = "Numeric" if b_is_num else "Categorical"
 
-    badge_text, badge_color = _quality_badge_from_pair_validity(valid_pct)
+    badge_text = _quality_badge_from_pair_validity(valid_pct)
 
     k1, k2, k3, k4, k5 = st.columns(5)
-    with k1:
-        _render_bi_kpi("Variable A", col_a, a_label, "#2563eb")
-    with k2:
-        _render_bi_kpi("Variable B", col_b, b_label, "#0ea5e9")
-    with k3:
-        _render_bi_kpi("Detected pair", auto_mode, decision_source, "#16a34a")
-    with k4:
-        _render_bi_kpi("Valid pairs", f"{valid_pairs:,}", f"{valid_pct}%", "#f59e0b")
-    with k5:
-        _render_bi_kpi("Final mode", final_mode, badge_text, badge_color)
 
-    tabs = st.tabs([
-        "Analysis",
-        "Metadata",
-        "Interpretation",
-        "Suggested tests"
-    ])
+    with k1:
+        _render_bi_kpi("Variable A", _truncate_text(col_a), a_label)
+
+    with k2:
+        _render_bi_kpi("Variable B", _truncate_text(col_b), b_label)
+
+    with k3:
+        _render_bi_kpi("Detected pair", auto_mode, decision_source)
+
+    with k4:
+        _render_bi_kpi("Valid pairs", _format_int(valid_pairs), f"{valid_pct}%")
+
+    with k5:
+        _render_bi_kpi("Final mode", final_mode, badge_text)
+
+    tabs = st.tabs(
+        [
+            "Analysis",
+            "Interpretation",
+            "Next steps",
+            "Metadata",
+            "Suggested tests",
+        ]
+    )
 
     with tabs[0]:
-        st.markdown(
-            f"""
-            <div class="bi-card" style="margin-bottom: 0.9rem;">
-                <div class="bi-panel-title">Current configuration</div>
-                <div class="bi-panel-subtitle">
-                    <b>{col_a}</b> and <b>{col_b}</b> are being analyzed as <b>{final_mode}</b>.
-                </div>
-                <div class="bi-badge" style="background:{badge_color}18;color:{badge_color};border:1px solid {badge_color}40;">
-                    {badge_text}
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True
+        _render_current_config(
+            col_a=col_a,
+            col_b=col_b,
+            final_mode=final_mode,
+            decision_source=decision_source,
+            badge_text=badge_text,
         )
 
         if valid_pairs == 0:
-            st.markdown(
-                """
-                <div class="bi-danger">
-                    There are no valid paired observations after removing rows with missing values in either variable.
-                    Bivariate analysis cannot be computed.
-                </div>
-                """,
-                unsafe_allow_html=True
+            _render_alert(
+                "danger",
+                "There are no valid paired observations after removing rows with missing values in either variable. Bivariate analysis cannot be computed.",
             )
             return
 
         if final_mode == "Numeric vs Numeric":
             render_numeric_numeric(sa, sb, col_a, col_b)
+
         elif final_mode == "Categorical vs Categorical":
             render_categorical_categorical(sa, sb, col_a, col_b)
+
         elif final_mode == "Numeric vs Categorical":
             render_numeric_categorical(sa, sb, col_a, col_b, a_is_num)
+
         else:
             st.warning("Unsupported analysis mode.")
 
     with tabs[1]:
+        _render_section_title(
+            "Automatic interpretation",
+            "Plain-language reading of the selected variable pair.",
+        )
+
+        insights = _build_pair_interpretation(
+            col_a=col_a,
+            col_b=col_b,
+            final_mode=final_mode,
+            mode=mode,
+            valid_pairs=valid_pairs,
+            total_rows=total_rows,
+            valid_pct=valid_pct,
+            a_unique=a_unique,
+            b_unique=b_unique,
+        )
+
+        for insight in insights:
+            _render_alert("info", insight)
+
+    with tabs[2]:
+        _render_section_title(
+            "Suggested next steps",
+            "Recommended workflow for this type of relationship.",
+        )
+
+        for step in _build_workflow_steps(final_mode):
+            _render_alert("success", step)
+
+        if valid_pct < 80:
+            _render_alert(
+                "warning",
+                "Because pair completeness is below 80%, consider checking missingness before making strong conclusions.",
+            )
+
+    with tabs[3]:
         left, right = st.columns([1.15, 1])
 
         with left:
-            st.markdown('<div class="bi-panel-title">Pair metadata</div>', unsafe_allow_html=True)
-            st.markdown('<div class="bi-panel-subtitle">Structural description of the selected variable pair.</div>', unsafe_allow_html=True)
+            _render_section_title(
+                "Pair metadata",
+                "Structural description of the selected variable pair.",
+            )
 
             meta_df = _build_bivariate_meta_df(
                 col_a=col_a,
                 col_b=col_b,
-                a_dtype=str(sa.dtype),
-                b_dtype=str(sb.dtype),
+                a_dtype=str(sa_raw.dtype),
+                b_dtype=str(sb_raw.dtype),
                 a_detected=a_label,
                 b_detected=b_label,
                 valid_pairs=valid_pairs,
                 total_rows=total_rows,
                 pair_missing=pair_missing,
                 valid_pct=valid_pct,
-                final_mode=final_mode
+                final_mode=final_mode,
             )
+
             st.dataframe(meta_df, use_container_width=True, hide_index=True)
 
         with right:
-            st.markdown('<div class="bi-panel-title">Quick structural signals</div>', unsafe_allow_html=True)
-            st.markdown('<div class="bi-panel-subtitle">Readiness and potential issues before interpreting results.</div>', unsafe_allow_html=True)
+            _render_section_title(
+                "Quick structural signals",
+                "Readiness and potential issues before interpreting results.",
+            )
+
+            readiness_kind = _alert_type_from_pair_validity(valid_pct)
 
             if valid_pct >= 95:
-                st.markdown(
-                    """
-                    <div class="bi-success">
-                        Pair completeness is very high, so the relationship can be analyzed with minimal missing-data concern.
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+                readiness_msg = "Pair completeness is very high, so this relationship can be analyzed with minimal missing-data concern."
             elif valid_pct >= 80:
-                st.markdown(
-                    """
-                    <div class="bi-info">
-                        Pair completeness is good. The analysis should remain broadly reliable.
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+                readiness_msg = "Pair completeness is good. The analysis should remain broadly reliable."
             elif valid_pct >= 60:
-                st.markdown(
-                    """
-                    <div class="bi-warning">
-                        A notable share of rows is excluded by missingness, so results may be less stable or less representative.
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+                readiness_msg = "A notable share of rows is excluded by missingness, so results may be less stable or less representative."
             else:
-                st.markdown(
-                    """
-                    <div class="bi-danger">
-                        Pair completeness is low. Relationship analysis should be interpreted with caution.
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+                readiness_msg = "Pair completeness is low. Relationship analysis should be interpreted with caution."
+
+            _render_alert(readiness_kind, readiness_msg)
 
             if final_mode == "Numeric vs Numeric":
-                st.markdown(
-                    """
-                    <div class="bi-success">
-                        This setup is appropriate for scatter plots, correlation, and trend estimation.
-                    </div>
-                    """,
-                    unsafe_allow_html=True
+                _render_alert(
+                    "success",
+                    "This setup is appropriate for scatter plots, correlation, and trend estimation.",
                 )
+
             elif final_mode == "Categorical vs Categorical":
                 if a_unique > 20 or b_unique > 20:
-                    st.markdown(
-                        """
-                        <div class="bi-warning">
-                            At least one categorical variable has high cardinality, which may produce sparse contingency tables and crowded charts.
-                        </div>
-                        """,
-                        unsafe_allow_html=True
+                    _render_alert(
+                        "warning",
+                        "At least one categorical variable has high cardinality, which may produce sparse contingency tables and crowded charts.",
                     )
                 else:
-                    st.markdown(
-                        """
-                        <div class="bi-success">
-                            Category counts appear manageable for contingency analysis and stacked visualizations.
-                        </div>
-                        """,
-                        unsafe_allow_html=True
+                    _render_alert(
+                        "success",
+                        "Category counts appear manageable for contingency analysis and normalized comparisons.",
                     )
+
             elif final_mode == "Numeric vs Categorical":
-                cat_unique = b_unique if a_is_num else a_unique if final_mode == auto_mode else min(a_unique, b_unique)
+                cat_unique = b_unique if a_is_num else a_unique
+
                 if cat_unique > 20:
-                    st.markdown(
-                        """
-                        <div class="bi-warning">
-                            The categorical side may have too many levels for clean group comparison. Consider grouping rare categories.
-                        </div>
-                        """,
-                        unsafe_allow_html=True
+                    _render_alert(
+                        "warning",
+                        "The categorical side has many levels. Group comparison may be clearer after grouping rare categories.",
                     )
                 else:
-                    st.markdown(
-                        """
-                        <div class="bi-success">
-                            This setup is suitable for comparing numeric distributions across groups.
-                        </div>
-                        """,
-                        unsafe_allow_html=True
+                    _render_alert(
+                        "success",
+                        "This setup is suitable for comparing numeric distributions across groups.",
                     )
 
             st.markdown(
                 f"""
-                <div class="bi-card" style="margin-top:0.6rem;">
+                <div class="bi-card">
                     <div class="bi-panel-title">Variable profile</div>
                     <div class="bi-panel-subtitle">
                         <b>{col_a}</b>: {a_non_null:,} non-null, {a_unique:,} unique<br>
@@ -999,68 +1191,14 @@ def render_bivariate_analysis(df: pd.DataFrame, cols_for_stats: list[str]):
                     </div>
                 </div>
                 """,
-                unsafe_allow_html=True
+                unsafe_allow_html=True,
             )
 
-    with tabs[2]:
-        st.markdown('<div class="bi-panel-title">Automatic interpretation</div>', unsafe_allow_html=True)
-        st.markdown('<div class="bi-panel-subtitle">System-generated narrative based on pair structure and analysis mode.</div>', unsafe_allow_html=True)
-
-        insights = []
-
-        insights.append(
-            f"The selected pair is <b>{col_a}</b> and <b>{col_b}</b>, with <b>{valid_pairs:,}</b> valid paired observations out of <b>{total_rows:,}</b> total rows."
+    with tabs[4]:
+        _render_section_title(
+            "Suggested tests and methods",
+            "Recommended statistical methods and visuals for the selected relationship type.",
         )
-
-        if final_mode == "Numeric vs Numeric":
-            insights.append(
-                "Both variables are being treated as numeric, so the main focus is linear or monotonic association, dispersion, and possible predictive trend."
-            )
-            if valid_pct < 80:
-                insights.append(
-                    "Because pair completeness is reduced, the observed relationship may reflect a filtered subset rather than the full dataset."
-                )
-            if a_unique <= 5 or b_unique <= 5:
-                insights.append(
-                    "At least one variable has very low numeric diversity, so it may behave more like an ordinal scale than a continuous measure."
-                )
-
-        elif final_mode == "Categorical vs Categorical":
-            insights.append(
-                "Both variables are being treated as categorical, so the main focus is whether category membership in one variable is associated with the other."
-            )
-            if a_unique > 20 or b_unique > 20:
-                insights.append(
-                    "High category cardinality may create sparse cells and make contingency-based interpretation less stable or less readable."
-                )
-            else:
-                insights.append(
-                    "The category structure appears usable for contingency tables, normalized comparisons, and association testing."
-                )
-
-        elif final_mode == "Numeric vs Categorical":
-            insights.append(
-                "This pair is being treated as numeric versus categorical, so the central question is whether the numeric distribution changes meaningfully across groups."
-            )
-            if valid_pct < 80:
-                insights.append(
-                    "Because some rows are excluded by missingness, group comparisons may be based on an incomplete subset."
-                )
-            if a_unique > 20 and b_unique > 20:
-                insights.append(
-                    "One side may have many levels, so group summaries may be clearer after category consolidation."
-                )
-
-        insights.append(
-            f"The final analysis mode comes from {'automatic detection' if mode == 'Auto' else 'manual override'}, so interpretation should reflect the intended analytical role of each variable."
-        )
-
-        for txt in insights:
-            st.markdown(f'<div class="bi-info">{txt}</div>', unsafe_allow_html=True)
-
-    with tabs[3]:
-        st.markdown('<div class="bi-panel-title">Suggested next analyses</div>', unsafe_allow_html=True)
-        st.markdown('<div class="bi-panel-subtitle">Recommended tests and visuals for the selected variable pair.</div>', unsafe_allow_html=True)
 
         tests_df = _build_suggested_tests_for_pair(final_mode)
 
@@ -1068,30 +1206,3 @@ def render_bivariate_analysis(df: pd.DataFrame, cols_for_stats: list[str]):
             st.info("No suggestions are available for the current pair configuration.")
         else:
             st.dataframe(tests_df, use_container_width=True, hide_index=True)
-
-        workflow_steps = []
-
-        if final_mode == "Numeric vs Numeric":
-            workflow_steps = [
-                "Inspect the scatter plot for linearity, clusters, curvature, and extreme points.",
-                "Quantify the relationship with Pearson or Spearman correlation.",
-                "Add a trend line and consider simple regression if prediction matters.",
-                "Review outliers because a few extreme values can distort correlation."
-            ]
-        elif final_mode == "Categorical vs Categorical":
-            workflow_steps = [
-                "Start with a contingency table of counts.",
-                "Then inspect normalized proportions to compare category composition.",
-                "Use chi-square to test dependence between the variables.",
-                "If association is significant, add an effect-size measure such as Cramér's V."
-            ]
-        elif final_mode == "Numeric vs Categorical":
-            workflow_steps = [
-                "Inspect grouped distributions with boxplots or violin plots.",
-                "Compare means or medians across categories.",
-                "Use a t-test for two groups or ANOVA for three or more groups.",
-                "If there are many rare categories, consolidate them before inference."
-            ]
-
-        for step in workflow_steps:
-            st.markdown(f'<div class="bi-success">{step}</div>', unsafe_allow_html=True)

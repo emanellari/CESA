@@ -832,3 +832,1288 @@ div[data-testid="stDataEditor"] {
     line-height: 1.4;
     margin-top: 4px;
 }
+
+/* ============================================================
+   BIVARIATE ANALYSIS — PROFESSIONAL UI FIX
+   Paste at the END of styles.css
+   ============================================================ */
+
+/* ---------- Bivariate header ---------- */
+.bi-header {
+    padding: 1.15rem 1.25rem 1rem 1.25rem;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fbff 55%, #eef6ff 100%);
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+    margin-bottom: 1rem;
+}
+
+.bi-title {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 0.22rem;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+}
+
+.bi-subtitle {
+    color: #64748b;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    max-width: 980px;
+}
+
+/* ---------- Toolbar / selector area ---------- */
+.bi-toolbar {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    padding: 0.95rem 1rem 0.75rem 1rem;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.035);
+    margin-bottom: 0.95rem;
+}
+
+.bi-small-muted {
+    color: #64748b;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    margin-top: 0.35rem;
+}
+
+/* Streamlit inputs inside bivariate toolbar */
+.bi-toolbar div[data-testid="stSelectbox"],
+.bi-toolbar div[data-testid="stRadio"] {
+    margin-bottom: 0.25rem !important;
+}
+
+.bi-toolbar label,
+.bi-toolbar p {
+    font-size: 0.82rem !important;
+    color: #475569 !important;
+}
+
+/* ---------- Cards ---------- */
+.bi-card {
+    background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    padding: 0.95rem 1rem;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.04);
+    margin-bottom: 0.85rem;
+}
+
+/* Current configuration card */
+.bi-card .bi-panel-title {
+    margin-bottom: 0.25rem;
+}
+
+/* ---------- KPI cards ---------- */
+.bi-kpi {
+    min-height: 108px;
+    position: relative;
+    overflow: hidden;
+}
+
+.bi-kpi::before {
+    content: "";
+    display: block;
+    width: 100%;
+    height: 4px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #2563eb, #0ea5e9);
+    margin-bottom: 0.72rem;
+}
+
+.bi-kpi-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #64748b;
+    margin-bottom: 0.28rem;
+    line-height: 1.2;
+}
+
+.bi-kpi-value {
+    font-size: 1.12rem;
+    line-height: 1.15;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 0.16rem;
+    letter-spacing: -0.02em;
+    overflow-wrap: anywhere;
+}
+
+.bi-kpi-subtitle {
+    font-size: 0.76rem;
+    color: #64748b;
+    line-height: 1.35;
+}
+
+/* ---------- Panel titles ---------- */
+.bi-panel-title {
+    font-size: 1rem;
+    font-weight: 780;
+    color: #0f172a;
+    margin-top: 0.1rem;
+    margin-bottom: 0.35rem;
+    line-height: 1.2;
+}
+
+.bi-panel-subtitle {
+    font-size: 0.84rem;
+    color: #64748b;
+    margin-bottom: 0.7rem;
+    line-height: 1.45;
+}
+
+/* ---------- Badge ---------- */
+.bi-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.28rem 0.62rem;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-weight: 750;
+    color: #1d4ed8;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    margin-top: 0.35rem;
+}
+
+/* ---------- Alert blocks ---------- */
+.bi-info,
+.bi-success,
+.bi-warning,
+.bi-danger,
+.bi-note {
+    padding: 0.78rem 0.9rem;
+    border-radius: 12px;
+    margin-bottom: 0.62rem;
+    color: #0f172a;
+    font-size: 0.86rem;
+    line-height: 1.48;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+}
+
+.bi-info {
+    border-left: 4px solid #2563eb;
+    background: #f8fbff;
+}
+
+.bi-success {
+    border-left: 4px solid #16a34a;
+    background: #f6fdf8;
+}
+
+.bi-warning {
+    border-left: 4px solid #f59e0b;
+    background: #fffaf0;
+}
+
+.bi-danger {
+    border-left: 4px solid #dc2626;
+    background: #fff7f7;
+}
+
+.bi-note {
+    border-left: 4px solid #64748b;
+    background: #f8fafc;
+}
+
+/* ---------- Tabs: reduce cramped look ---------- */
+[data-testid="stTabs"] {
+    margin-top: 0.25rem !important;
+}
+
+[data-testid="stTabs"] [role="tablist"] {
+    gap: 0.25rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+[data-testid="stTabs"] button[role="tab"] {
+    min-height: 34px !important;
+    padding: 0.35rem 0.75rem !important;
+    border-radius: 10px 10px 0 0 !important;
+    font-size: 0.82rem !important;
+    font-weight: 650 !important;
+}
+
+[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+    background: #2563eb !important;
+    color: #ffffff !important;
+}
+
+[data-testid="stTabs"] div[data-testid="stTabContent"] {
+    padding-top: 0.8rem !important;
+}
+
+/* ---------- Dataframes / tables ---------- */
+div[data-testid="stDataFrame"] {
+    border-radius: 14px !important;
+    overflow: hidden !important;
+    border: 1px solid #e2e8f0 !important;
+    background: #ffffff !important;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.035);
+}
+
+div[data-testid="stDataFrame"] * {
+    font-size: 0.82rem !important;
+}
+
+/* ---------- Plotly charts ---------- */
+div[data-testid="stPlotlyChart"] {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    padding: 0.65rem;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.035);
+    margin-bottom: 0.9rem;
+}
+
+/* Plot toolbar becomes less visually intrusive */
+.modebar {
+    opacity: 0.25 !important;
+    transition: opacity 0.2s ease;
+}
+
+.modebar:hover {
+    opacity: 1 !important;
+}
+
+/* ---------- Code blocks ---------- */
+div[data-testid="stCodeBlock"] {
+    border-radius: 14px !important;
+    overflow: hidden !important;
+    border: 1px solid #e2e8f0 !important;
+}
+
+/* ---------- Metrics from Streamlit fallback ---------- */
+div[data-testid="stMetric"] {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 0.75rem 0.85rem;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.035);
+}
+
+div[data-testid="stMetric"] label {
+    color: #64748b !important;
+    font-size: 0.78rem !important;
+}
+
+div[data-testid="stMetricValue"] {
+    color: #0f172a !important;
+    font-size: 1.15rem !important;
+    font-weight: 800 !important;
+}
+
+/* ---------- General spacing inside analysis ---------- */
+.bi-header + .bi-toolbar {
+    margin-top: 0.2rem;
+}
+
+.bi-toolbar + div {
+    margin-top: 0.5rem;
+}
+
+/* Better spacing between Streamlit columns */
+div[data-testid="column"] {
+    padding-left: 0.25rem !important;
+    padding-right: 0.25rem !important;
+}
+
+/* ---------- Responsive behavior ---------- */
+@media (max-width: 900px) {
+    .bi-header {
+        padding: 0.95rem 1rem;
+        border-radius: 16px;
+    }
+
+    .bi-title {
+        font-size: 1.15rem;
+    }
+
+    .bi-subtitle {
+        font-size: 0.84rem;
+    }
+
+    .bi-toolbar {
+        padding: 0.8rem;
+        border-radius: 16px;
+    }
+
+    .bi-card {
+        padding: 0.8rem;
+        border-radius: 16px;
+    }
+
+    .bi-kpi {
+        min-height: 94px;
+    }
+
+    .bi-kpi-value {
+        font-size: 1rem;
+    }
+
+    .bi-kpi-title,
+    .bi-kpi-subtitle {
+        font-size: 0.72rem;
+    }
+
+    [data-testid="stTabs"] button[role="tab"] {
+        font-size: 0.76rem !important;
+        padding: 0.3rem 0.5rem !important;
+    }
+
+    div[data-testid="stPlotlyChart"] {
+        padding: 0.45rem;
+        border-radius: 14px;
+    }
+}
+/* ============================================================
+   THREE-VARIABLE ANALYSIS — PROFESSIONAL UI
+   Paste at the END of styles.css
+   ============================================================ */
+
+/* ---------- Header ---------- */
+.tv-header {
+    padding: 1.15rem 1.25rem 1rem 1.25rem;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fbff 55%, #eef6ff 100%);
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+    margin-bottom: 1rem;
+}
+
+.tv-title {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 0.22rem;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+}
+
+.tv-subtitle {
+    color: #64748b;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    max-width: 980px;
+}
+
+/* ---------- Toolbar / selectors ---------- */
+.tv-toolbar {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    padding: 0.95rem 1rem 0.75rem 1rem;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.035);
+    margin-bottom: 0.95rem;
+}
+
+.tv-small-muted {
+    color: #64748b;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    margin-top: 0.35rem;
+}
+
+.tv-toolbar div[data-testid="stSelectbox"],
+.tv-toolbar div[data-testid="stRadio"],
+.tv-toolbar div[data-testid="stSlider"] {
+    margin-bottom: 0.25rem !important;
+}
+
+.tv-toolbar label,
+.tv-toolbar p {
+    font-size: 0.82rem !important;
+    color: #475569 !important;
+}
+
+/* ---------- Cards ---------- */
+.tv-card {
+    background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    padding: 0.95rem 1rem;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.04);
+    margin-bottom: 0.85rem;
+}
+
+/* ---------- KPI cards ---------- */
+.tv-kpi {
+    min-height: 108px;
+    position: relative;
+    overflow: hidden;
+}
+
+.tv-kpi::before {
+    content: "";
+    display: block;
+    width: 100%;
+    height: 4px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #2563eb, #0ea5e9);
+    margin-bottom: 0.72rem;
+}
+
+.tv-kpi-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #64748b;
+    margin-bottom: 0.28rem;
+    line-height: 1.2;
+}
+
+.tv-kpi-value {
+    font-size: 1.12rem;
+    line-height: 1.15;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 0.16rem;
+    letter-spacing: -0.02em;
+    overflow-wrap: anywhere;
+}
+
+.tv-kpi-subtitle {
+    font-size: 0.76rem;
+    color: #64748b;
+    line-height: 1.35;
+}
+
+/* ---------- Titles ---------- */
+.tv-panel-title {
+    font-size: 1rem;
+    font-weight: 780;
+    color: #0f172a;
+    margin-top: 0.1rem;
+    margin-bottom: 0.35rem;
+    line-height: 1.2;
+}
+
+.tv-panel-subtitle {
+    font-size: 0.84rem;
+    color: #64748b;
+    margin-bottom: 0.7rem;
+    line-height: 1.45;
+}
+
+/* ---------- Badge ---------- */
+.tv-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.28rem 0.62rem;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-weight: 750;
+    color: #1d4ed8;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    margin-top: 0.35rem;
+}
+
+/* ---------- Alert blocks ---------- */
+.tv-info,
+.tv-success,
+.tv-warning,
+.tv-danger,
+.tv-note {
+    padding: 0.78rem 0.9rem;
+    border-radius: 12px;
+    margin-bottom: 0.62rem;
+    color: #0f172a;
+    font-size: 0.86rem;
+    line-height: 1.48;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+}
+
+.tv-info {
+    border-left: 4px solid #2563eb;
+    background: #f8fbff;
+}
+
+.tv-success {
+    border-left: 4px solid #16a34a;
+    background: #f6fdf8;
+}
+
+.tv-warning {
+    border-left: 4px solid #f59e0b;
+    background: #fffaf0;
+}
+
+.tv-danger {
+    border-left: 4px solid #dc2626;
+    background: #fff7f7;
+}
+
+.tv-note {
+    border-left: 4px solid #64748b;
+    background: #f8fafc;
+}
+
+/* ---------- Tabs polish ---------- */
+[data-testid="stTabs"] {
+    margin-top: 0.25rem !important;
+}
+
+[data-testid="stTabs"] [role="tablist"] {
+    gap: 0.25rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+[data-testid="stTabs"] button[role="tab"] {
+    min-height: 34px !important;
+    padding: 0.35rem 0.75rem !important;
+    border-radius: 10px 10px 0 0 !important;
+    font-size: 0.82rem !important;
+    font-weight: 650 !important;
+}
+
+[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+    background: #2563eb !important;
+    color: #ffffff !important;
+}
+
+[data-testid="stTabs"] div[data-testid="stTabContent"] {
+    padding-top: 0.8rem !important;
+}
+
+/* ---------- Tables ---------- */
+div[data-testid="stDataFrame"] {
+    border-radius: 14px !important;
+    overflow: hidden !important;
+    border: 1px solid #e2e8f0 !important;
+    background: #ffffff !important;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.035);
+}
+
+div[data-testid="stDataFrame"] * {
+    font-size: 0.82rem !important;
+}
+
+/* ---------- Plotly charts ---------- */
+div[data-testid="stPlotlyChart"] {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    padding: 0.65rem;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.035);
+    margin-bottom: 0.9rem;
+}
+
+.modebar {
+    opacity: 0.25 !important;
+    transition: opacity 0.2s ease;
+}
+
+.modebar:hover {
+    opacity: 1 !important;
+}
+
+/* ---------- Better spacing ---------- */
+.tv-header + .tv-toolbar {
+    margin-top: 0.2rem;
+}
+
+.tv-toolbar + div {
+    margin-top: 0.5rem;
+}
+
+div[data-testid="column"] {
+    padding-left: 0.25rem !important;
+    padding-right: 0.25rem !important;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 900px) {
+    .tv-header {
+        padding: 0.95rem 1rem;
+        border-radius: 16px;
+    }
+
+    .tv-title {
+        font-size: 1.15rem;
+    }
+
+    .tv-subtitle {
+        font-size: 0.84rem;
+    }
+
+    .tv-toolbar {
+        padding: 0.8rem;
+        border-radius: 16px;
+    }
+
+    .tv-card {
+        padding: 0.8rem;
+        border-radius: 16px;
+    }
+
+    .tv-kpi {
+        min-height: 94px;
+    }
+
+    .tv-kpi-value {
+        font-size: 1rem;
+    }
+
+    .tv-kpi-title,
+    .tv-kpi-subtitle {
+        font-size: 0.72rem;
+    }
+
+    [data-testid="stTabs"] button[role="tab"] {
+        font-size: 0.76rem !important;
+        padding: 0.3rem 0.5rem !important;
+    }
+
+    div[data-testid="stPlotlyChart"] {
+        padding: 0.45rem;
+        border-radius: 14px;
+    }
+}
+/* ============================================================
+   MULTIVARIATE ANALYSIS — PROFESSIONAL UI
+   Paste at the END of styles.css
+   ============================================================ */
+
+/* ---------- Header ---------- */
+.mv-header {
+    padding: 1.15rem 1.25rem 1rem 1.25rem;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fbff 55%, #eef6ff 100%);
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+    margin-bottom: 1rem;
+}
+
+.mv-title {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 0.22rem;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+}
+
+.mv-subtitle {
+    color: #64748b;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    max-width: 980px;
+}
+
+/* ---------- Toolbar / selectors ---------- */
+.mv-toolbar {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    padding: 0.95rem 1rem 0.75rem 1rem;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.035);
+    margin-bottom: 0.95rem;
+}
+
+.mv-small-muted {
+    color: #64748b;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    margin-top: 0.35rem;
+}
+
+.mv-toolbar div[data-testid="stSelectbox"],
+.mv-toolbar div[data-testid="stMultiSelect"],
+.mv-toolbar div[data-testid="stRadio"],
+.mv-toolbar div[data-testid="stSlider"] {
+    margin-bottom: 0.25rem !important;
+}
+
+.mv-toolbar label,
+.mv-toolbar p {
+    font-size: 0.82rem !important;
+    color: #475569 !important;
+}
+
+/* ---------- Cards ---------- */
+.mv-card {
+    background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    padding: 0.95rem 1rem;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.04);
+    margin-bottom: 0.85rem;
+}
+
+/* ---------- KPI cards ---------- */
+.mv-kpi {
+    min-height: 108px;
+    position: relative;
+    overflow: hidden;
+}
+
+.mv-kpi::before {
+    content: "";
+    display: block;
+    width: 100%;
+    height: 4px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #2563eb, #0ea5e9);
+    margin-bottom: 0.72rem;
+}
+
+.mv-kpi-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #64748b;
+    margin-bottom: 0.28rem;
+    line-height: 1.2;
+}
+
+.mv-kpi-value {
+    font-size: 1.12rem;
+    line-height: 1.15;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 0.16rem;
+    letter-spacing: -0.02em;
+    overflow-wrap: anywhere;
+}
+
+.mv-kpi-subtitle {
+    font-size: 0.76rem;
+    color: #64748b;
+    line-height: 1.35;
+}
+
+/* ---------- Titles ---------- */
+.mv-panel-title {
+    font-size: 1rem;
+    font-weight: 780;
+    color: #0f172a;
+    margin-top: 0.1rem;
+    margin-bottom: 0.35rem;
+    line-height: 1.2;
+}
+
+.mv-panel-subtitle {
+    font-size: 0.84rem;
+    color: #64748b;
+    margin-bottom: 0.7rem;
+    line-height: 1.45;
+}
+
+/* ---------- Badge ---------- */
+.mv-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.28rem 0.62rem;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-weight: 750;
+    color: #1d4ed8;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    margin-top: 0.35rem;
+}
+
+/* ---------- Alert blocks ---------- */
+.mv-info,
+.mv-success,
+.mv-warning,
+.mv-danger,
+.mv-note {
+    padding: 0.78rem 0.9rem;
+    border-radius: 12px;
+    margin-bottom: 0.62rem;
+    color: #0f172a;
+    font-size: 0.86rem;
+    line-height: 1.48;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+}
+
+.mv-info {
+    border-left: 4px solid #2563eb;
+    background: #f8fbff;
+}
+
+.mv-success {
+    border-left: 4px solid #16a34a;
+    background: #f6fdf8;
+}
+
+.mv-warning {
+    border-left: 4px solid #f59e0b;
+    background: #fffaf0;
+}
+
+.mv-danger {
+    border-left: 4px solid #dc2626;
+    background: #fff7f7;
+}
+
+.mv-note {
+    border-left: 4px solid #64748b;
+    background: #f8fafc;
+}
+
+/* ---------- Tabs polish ---------- */
+[data-testid="stTabs"] {
+    margin-top: 0.25rem !important;
+}
+
+[data-testid="stTabs"] [role="tablist"] {
+    gap: 0.25rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+[data-testid="stTabs"] button[role="tab"] {
+    min-height: 34px !important;
+    padding: 0.35rem 0.75rem !important;
+    border-radius: 10px 10px 0 0 !important;
+    font-size: 0.82rem !important;
+    font-weight: 650 !important;
+}
+
+[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+    background: #2563eb !important;
+    color: #ffffff !important;
+}
+
+[data-testid="stTabs"] div[data-testid="stTabContent"] {
+    padding-top: 0.8rem !important;
+}
+
+/* ---------- Tables ---------- */
+div[data-testid="stDataFrame"] {
+    border-radius: 14px !important;
+    overflow: hidden !important;
+    border: 1px solid #e2e8f0 !important;
+    background: #ffffff !important;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.035);
+}
+
+div[data-testid="stDataFrame"] * {
+    font-size: 0.82rem !important;
+}
+
+/* ---------- Plotly charts ---------- */
+div[data-testid="stPlotlyChart"] {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    padding: 0.65rem;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.035);
+    margin-bottom: 0.9rem;
+}
+
+.modebar {
+    opacity: 0.25 !important;
+    transition: opacity 0.2s ease;
+}
+
+.modebar:hover {
+    opacity: 1 !important;
+}
+
+/* ---------- Code blocks ---------- */
+div[data-testid="stCodeBlock"] {
+    border-radius: 14px !important;
+    overflow: hidden !important;
+    border: 1px solid #e2e8f0 !important;
+}
+
+/* ---------- General spacing ---------- */
+.mv-header + .mv-toolbar {
+    margin-top: 0.2rem;
+}
+
+.mv-toolbar + div {
+    margin-top: 0.5rem;
+}
+
+div[data-testid="column"] {
+    padding-left: 0.25rem !important;
+    padding-right: 0.25rem !important;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 900px) {
+    .mv-header {
+        padding: 0.95rem 1rem;
+        border-radius: 16px;
+    }
+
+    .mv-title {
+        font-size: 1.15rem;
+    }
+
+    .mv-subtitle {
+        font-size: 0.84rem;
+    }
+
+    .mv-toolbar {
+        padding: 0.8rem;
+        border-radius: 16px;
+    }
+
+    .mv-card {
+        padding: 0.8rem;
+        border-radius: 16px;
+    }
+
+    .mv-kpi {
+        min-height: 94px;
+    }
+
+    .mv-kpi-value {
+        font-size: 1rem;
+    }
+
+    .mv-kpi-title,
+    .mv-kpi-subtitle {
+        font-size: 0.72rem;
+    }
+
+    [data-testid="stTabs"] button[role="tab"] {
+        font-size: 0.76rem !important;
+        padding: 0.3rem 0.5rem !important;
+    }
+
+    div[data-testid="stPlotlyChart"] {
+        padding: 0.45rem;
+        border-radius: 14px;
+    }
+}
+/* ============================================================
+   STATISTICAL TESTS — PROFESSIONAL UI
+   Paste at the END of styles.css
+   ============================================================ */
+
+/* ---------- Header ---------- */
+.sttest-header {
+    padding: 1.15rem 1.25rem 1rem 1.25rem;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fbff 55%, #eef6ff 100%);
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+    margin-bottom: 1rem;
+}
+
+.sttest-title {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 0.22rem;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+}
+
+.sttest-subtitle {
+    color: #64748b;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    max-width: 980px;
+}
+
+/* ---------- Toolbar / selectors ---------- */
+.sttest-toolbar {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    padding: 0.95rem 1rem 0.75rem 1rem;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.035);
+    margin-bottom: 0.95rem;
+}
+
+.sttest-small-muted {
+    color: #64748b;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    margin-top: 0.35rem;
+}
+
+.sttest-toolbar div[data-testid="stSelectbox"],
+.sttest-toolbar div[data-testid="stMultiSelect"],
+.sttest-toolbar div[data-testid="stRadio"],
+.sttest-toolbar div[data-testid="stSlider"] {
+    margin-bottom: 0.25rem !important;
+}
+
+.sttest-toolbar label,
+.sttest-toolbar p {
+    font-size: 0.82rem !important;
+    color: #475569 !important;
+}
+
+/* ---------- Cards ---------- */
+.sttest-card {
+    background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    padding: 0.95rem 1rem;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.04);
+    margin-bottom: 0.85rem;
+}
+
+/* ---------- KPI cards ---------- */
+.sttest-kpi {
+    min-height: 108px;
+    position: relative;
+    overflow: hidden;
+}
+
+.sttest-kpi::before {
+    content: "";
+    display: block;
+    width: 100%;
+    height: 4px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #2563eb, #0ea5e9);
+    margin-bottom: 0.72rem;
+}
+
+.sttest-kpi-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #64748b;
+    margin-bottom: 0.28rem;
+    line-height: 1.2;
+}
+
+.sttest-kpi-value {
+    font-size: 1.12rem;
+    line-height: 1.15;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 0.16rem;
+    letter-spacing: -0.02em;
+    overflow-wrap: anywhere;
+}
+
+.sttest-kpi-subtitle {
+    font-size: 0.76rem;
+    color: #64748b;
+    line-height: 1.35;
+}
+
+/* ---------- Section titles ---------- */
+.sttest-panel-title {
+    font-size: 1rem;
+    font-weight: 780;
+    color: #0f172a;
+    margin-top: 0.1rem;
+    margin-bottom: 0.35rem;
+    line-height: 1.2;
+}
+
+.sttest-panel-subtitle {
+    font-size: 0.84rem;
+    color: #64748b;
+    margin-bottom: 0.7rem;
+    line-height: 1.45;
+}
+
+/* ---------- Badge ---------- */
+.sttest-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.28rem 0.62rem;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-weight: 750;
+    color: #1d4ed8;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    margin-top: 0.35rem;
+}
+
+/* ---------- Alert blocks ---------- */
+.sttest-info,
+.sttest-success,
+.sttest-warning,
+.sttest-danger,
+.sttest-note {
+    padding: 0.78rem 0.9rem;
+    border-radius: 12px;
+    margin-bottom: 0.62rem;
+    color: #0f172a;
+    font-size: 0.86rem;
+    line-height: 1.48;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+}
+
+.sttest-info {
+    border-left: 4px solid #2563eb;
+    background: #f8fbff;
+}
+
+.sttest-success {
+    border-left: 4px solid #16a34a;
+    background: #f6fdf8;
+}
+
+.sttest-warning {
+    border-left: 4px solid #f59e0b;
+    background: #fffaf0;
+}
+
+.sttest-danger {
+    border-left: 4px solid #dc2626;
+    background: #fff7f7;
+}
+
+.sttest-note {
+    border-left: 4px solid #64748b;
+    background: #f8fafc;
+}
+
+/* ---------- Formula / LaTeX blocks ---------- */
+div[data-testid="stMarkdownContainer"] .katex-display {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    padding: 0.9rem 1rem;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.035);
+    overflow-x: auto;
+    overflow-y: hidden;
+    margin: 0.7rem 0 0.9rem 0;
+}
+
+.katex {
+    font-size: 1.05rem !important;
+}
+
+/* ---------- Tabs polish ---------- */
+[data-testid="stTabs"] {
+    margin-top: 0.25rem !important;
+}
+
+[data-testid="stTabs"] [role="tablist"] {
+    gap: 0.25rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+[data-testid="stTabs"] button[role="tab"] {
+    min-height: 34px !important;
+    padding: 0.35rem 0.75rem !important;
+    border-radius: 10px 10px 0 0 !important;
+    font-size: 0.82rem !important;
+    font-weight: 650 !important;
+}
+
+[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+    background: #2563eb !important;
+    color: #ffffff !important;
+}
+
+[data-testid="stTabs"] div[data-testid="stTabContent"] {
+    padding-top: 0.8rem !important;
+}
+
+/* ---------- Tables ---------- */
+div[data-testid="stDataFrame"] {
+    border-radius: 14px !important;
+    overflow: hidden !important;
+    border: 1px solid #e2e8f0 !important;
+    background: #ffffff !important;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.035);
+}
+
+div[data-testid="stDataFrame"] * {
+    font-size: 0.82rem !important;
+}
+
+/* ---------- Plotly charts ---------- */
+div[data-testid="stPlotlyChart"] {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    padding: 0.65rem;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.035);
+    margin-bottom: 0.9rem;
+}
+
+.modebar {
+    opacity: 0.25 !important;
+    transition: opacity 0.2s ease;
+}
+
+.modebar:hover {
+    opacity: 1 !important;
+}
+
+/* ---------- General spacing ---------- */
+.sttest-header + .sttest-toolbar {
+    margin-top: 0.2rem;
+}
+
+.sttest-toolbar + div {
+    margin-top: 0.5rem;
+}
+
+div[data-testid="column"] {
+    padding-left: 0.25rem !important;
+    padding-right: 0.25rem !important;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 900px) {
+    .sttest-header {
+        padding: 0.95rem 1rem;
+        border-radius: 16px;
+    }
+
+    .sttest-title {
+        font-size: 1.15rem;
+    }
+
+    .sttest-subtitle {
+        font-size: 0.84rem;
+    }
+
+    .sttest-toolbar {
+        padding: 0.8rem;
+        border-radius: 16px;
+    }
+
+    .sttest-card {
+        padding: 0.8rem;
+        border-radius: 16px;
+    }
+
+    .sttest-kpi {
+        min-height: 94px;
+    }
+
+    .sttest-kpi-value {
+        font-size: 1rem;
+    }
+
+    .sttest-kpi-title,
+    .sttest-kpi-subtitle {
+        font-size: 0.72rem;
+    }
+
+    [data-testid="stTabs"] button[role="tab"] {
+        font-size: 0.76rem !important;
+        padding: 0.3rem 0.5rem !important;
+    }
+
+    div[data-testid="stPlotlyChart"] {
+        padding: 0.45rem;
+        border-radius: 14px;
+    }
+
+    div[data-testid="stMarkdownContainer"] .katex-display {
+        padding: 0.75rem 0.8rem;
+        border-radius: 14px;
+    }
+
+    .katex {
+        font-size: 0.92rem !important;
+    }
+}
