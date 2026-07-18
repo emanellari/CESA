@@ -1,3 +1,4 @@
+from pathlib import Path
 import streamlit as st
 import pandas as pd
 import io
@@ -176,7 +177,7 @@ def render_datasets_page():
                     with pd.ExcelWriter(output, engine="openpyxl") as writer:
                         raw_df.to_excel(writer, index=False, sheet_name="Sheet1")
                     output.seek(0)
-                    output.name = uploaded.name
+                    output.name = f"{Path(uploaded.name).stem}.xlsx"
 
                     with st.spinner("Uploading dataset..."):
                         response = upload_dataset(

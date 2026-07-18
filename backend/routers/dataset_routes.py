@@ -1,13 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from pathlib import Path
+from typing import Any, Dict, List, Literal, Optional
+
+import io
+import json
+
+import pandas as pd
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-from typing import Dict, List, Literal
-from pydantic import BaseModel, Field
-import pandas as pd
-import io
-import json
-from typing import Dict, List, Optional, Any
 
 from ..db import SessionLocal
 from ..models import Dataset, User
@@ -59,6 +60,91 @@ def _safe_load_json(s: Optional[str], default):
         return json.loads(s)
     except Exception:
         return default
+
+
+def _read_delimited_file(content: bytes, separator: str) -> pd.DataFrame:
+    """Read CSV/TSV bytes, accepting UTF-8 and common Windows encodings."""
+    last_error: Optional[Exception] = None
+
+    for encoding in ("utf-8-sig", "utf-8", "cp1252", "latin-1"):
+        try:
+            return pd.read_csv(
+                io.BytesIO(content),
+                sep=separator,
+                encoding=encoding,
+            )
+        except UnicodeDecodeError as exc:
+            last_error = exc
+
+    raise ValueError("No se pudo detectar la codificación del archivo") from last_error
+
+
+def _read_uploaded_dataframe(content: bytes, extension: str) -> pd.DataFrame:
+    """Read an uploaded tabular file using the parser required by its extension."""
+    stream = io.BytesIO(content)
+
+    if extension == ".xlsx":
+        return pd.read_excel(stream, engine="openpyxl")
+    if extension == ".xls":
+        return pd.read_excel(stream, engine="xlrd")
+    if extension == ".csv":
+        return _read_delimited_file(content, separator=",")
+    if extension == ".tsv":
+        return _read_delimited_file(content, separator="\t")
+
+    raise ValueError(f"Formato no compatible: {extension}")
+
+
+def _normalize_columns(values: List[Any]) -> List[str]:
+    columns = [str(value).strip() for value in values]
+
+    if not columns or any(not column for column in columns):
+        raise HTTPException(
+            status_code=400,
+            detail="Los nombres de columna no pueden estar vacíos",
+        )
+
+    if len(columns) != len(set(columns)):
+        raise HTTPException(
+            status_code=400,
+            detail="Los nombres de columna deben ser únicos",
+        )
+
+    return columns
+
+
+def _parse_upload_columns(
+    columns_json: Optional[str],
+    detected_columns: List[Any],
+) -> List[str]:
+    detected = _normalize_columns(detected_columns)
+
+    if not columns_json:
+        return detected
+
+    try:
+        candidate = json.loads(columns_json)
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=400, detail="columns inválido") from exc
+
+    if not isinstance(candidate, list):
+        raise HTTPException(
+            status_code=400,
+            detail="columns debe ser una lista JSON",
+        )
+
+    parsed = _normalize_columns(candidate)
+
+    if len(parsed) != len(detected):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "columns no coincide con el archivo: "
+                f"se esperaban {len(detected)} nombres y se recibieron {len(parsed)}"
+            ),
+        )
+
+    return parsed
 
 
 # -------------------------
@@ -118,7 +204,7 @@ def create_dataset(
     }
 
 # -------------------------
-# 🔹 Upload Excel
+# 🔹 Upload tabular file
 # -------------------------
 @router.post("/upload")
 async def upload_dataset(
@@ -128,56 +214,61 @@ async def upload_dataset(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    filename = file.filename.lower()
-    allowed_extensions = (".xlsx", ".xls", ".csv", ".tsv")
+    filename = file.filename or ""
+    extension = Path(filename).suffix.lower()
+    allowed_extensions = {".xlsx", ".xls", ".csv", ".tsv"}
 
-    if not filename.endswith(allowed_extensions):
+    if extension not in allowed_extensions:
         raise HTTPException(
             status_code=400,
-            detail="Solo archivos .xlsx, .xls, .csv o .tsv"
+            detail="Solo archivos .xlsx, .xls, .csv o .tsv",
         )
 
     content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="El archivo está vacío")
 
-    import zipfile
-    if not zipfile.is_zipfile(io.BytesIO(content)):
+    try:
+        df = _read_uploaded_dataframe(content, extension)
+    except ImportError as exc:
+        dependency = {".xlsx": "openpyxl", ".xls": "xlrd"}.get(extension)
+        detail = (
+            f"Falta la dependencia {dependency} para leer {extension}"
+            if dependency
+            else f"Falta una dependencia para leer {extension}"
+        )
+        raise HTTPException(status_code=500, detail=detail) from exc
+    except (ValueError, OSError, UnicodeError) as exc:
         raise HTTPException(
             status_code=400,
-            detail="El archivo subido no es un .xlsx válido (no es ZIP interno)."
+            detail=f"No se pudo leer el archivo {extension}: {exc}",
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"El archivo {extension} no es válido o está dañado",
+        ) from exc
+
+    if df.columns.empty:
+        raise HTTPException(
+            status_code=400,
+            detail="El archivo no contiene columnas",
         )
 
-    df = pd.read_excel(io.BytesIO(content), engine="openpyxl").fillna("")
-    df.columns = [c.strip() if isinstance(c, str) else c for c in df.columns]
-    detected_columns = list(df.columns)
+    # Primero se procesa y valida el parámetro recibido; después se aplica al DataFrame.
+    parsed_columns = _parse_upload_columns(columns, list(df.columns))
+    df.columns = parsed_columns
+    df = df.fillna("")
 
-    # Parse columns enviados desde frontend
-    parsed_columns=detected_columns
-    if len(parsed_columns) == len(df.columns):
-        df.columns = parsed_columns
-    else:
-        raise HTTPException(status_code=400, detail="columns no coincide con el archivo")
-
-    if columns:
-        try:
-            columns_candidate = json.loads(columns)
-            if isinstance(columns_candidate, list):
-                parsed_columns = [
-                    c.strip() if isinstance(c, str) else c
-                    for c in columns_candidate
-                    if (c.strip() if isinstance(c, str) else c) != ""
-                ]
-        except Exception:
-            raise HTTPException(status_code=400, detail="columns inválido")
-
-    # Parse options enviados desde frontend
+    # Parse options enviados desde frontend usando los nombres finales de columna.
     parsed_options: Dict[str, Dict[str, Any]] = {}
     if options:
         try:
             raw_options = json.loads(options)
             if not isinstance(raw_options, dict):
                 raise ValueError("options debe ser objeto")
-        except Exception:
-            raise HTTPException(status_code=400, detail="options inválido")
+        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise HTTPException(status_code=400, detail="options inválido") from exc
 
         for col in parsed_columns:
             raw_cfg = raw_options.get(col, {})
@@ -194,24 +285,23 @@ async def upload_dataset(
                 raw_opts = []
 
             clean_opts = []
-            for o in raw_opts:
-                if isinstance(o, str):
-                    o_clean = o.strip()
-                    if o_clean:
-                        clean_opts.append(o_clean)
-                elif o is not None:
-                    clean_opts.append(o)
+            for option in raw_opts:
+                if isinstance(option, str):
+                    option = option.strip()
+                    if option:
+                        clean_opts.append(option)
+                elif option is not None:
+                    clean_opts.append(option)
 
             parsed_options[col] = {
                 "type": raw_type,
                 "options": clean_opts,
             }
     else:
-        for col in parsed_columns:
-            parsed_options[col] = {
-                "type": "text",
-                "options": [],
-            }
+        parsed_options = {
+            col: {"type": "text", "options": []}
+            for col in parsed_columns
+        }
 
     meta = {
         "columns": parsed_columns,
@@ -219,7 +309,7 @@ async def upload_dataset(
     }
 
     dataset = Dataset(
-        name=file.filename,
+        name=filename,
         data_json=df.to_json(orient="records"),
         meta_json=json.dumps(meta),
         user_id=user.id,
