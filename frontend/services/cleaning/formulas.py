@@ -1,348 +1,422 @@
+"""Safe formula evaluation for dataset-cleaning rules.
+
+This module deliberately does not use ``eval`` or ``exec``. User expressions are
+parsed with :mod:`ast` and evaluated node by node using a small allow-list.
+"""
+
+from __future__ import annotations
+
+import ast
+import math
+import operator
+import re
+from datetime import date, datetime
+from typing import Any, Callable
+
+import numpy as np
 import pandas as pd
-import streamlit as st
-
-from services.cleaning.formulas import (
-    _apply_null_formula_text,
-    _apply_null_formula_numeric,
-    _apply_null_formula_boolean,
-)
-
-from services.cleaning.formulas import _render_text_template
-from services.cleaning.profiles import get_mode_value, get_median_value
 
 
-def parse_replacements_text(text: str) -> dict:
-    replacements = {}
+class SafeExpressionError(ValueError):
+    """Raised when a user formula contains invalid or forbidden syntax."""
 
-    for line in text.splitlines():
-        line = line.strip()
-        if not line or "=" not in line:
-            continue
 
-        old, new = line.split("=", 1)
-        old = old.strip()
-        new = new.strip()
+_MAX_EXPRESSION_LENGTH = 500
+_MAX_AST_NODES = 100
+_MAX_POWER_EXPONENT = 100
+_MAX_RESULT_STRING_LENGTH = 100_000
 
-        if old:
-            replacements[old] = new
 
-    return replacements
+_BINARY_OPERATORS: dict[type[ast.operator], Callable[[Any, Any], Any]] = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.FloorDiv: operator.floordiv,
+    ast.Mod: operator.mod,
+    ast.Pow: operator.pow,
+}
 
-def parse_replacements(replacements_list: list) -> dict:
-    replacements = {}
+_UNARY_OPERATORS: dict[type[ast.unaryop], Callable[[Any], Any]] = {
+    ast.UAdd: operator.pos,
+    ast.USub: operator.neg,
+    ast.Not: operator.not_,
+}
 
-    for item in replacements_list or []:
-        if not isinstance(item, dict):
-            continue
+_COMPARISON_OPERATORS: dict[type[ast.cmpop], Callable[[Any, Any], bool]] = {
+    ast.Eq: operator.eq,
+    ast.NotEq: operator.ne,
+    ast.Lt: operator.lt,
+    ast.LtE: operator.le,
+    ast.Gt: operator.gt,
+    ast.GtE: operator.ge,
+    ast.In: lambda left, right: left in right,
+    ast.NotIn: lambda left, right: left not in right,
+    ast.Is: operator.is_,
+    ast.IsNot: operator.is_not,
+}
 
-        old_values = item.get("old_values", [])
-        new_value = item.get("new", "")
+_SAFE_FUNCTIONS: dict[str, Callable[..., Any]] = {
+    "abs": abs,
+    "round": round,
+    "min": min,
+    "max": max,
+    "len": len,
+    "str": str,
+    "int": int,
+    "float": float,
+    "bool": bool,
+    "sqrt": math.sqrt,
+    "ceil": math.ceil,
+    "floor": math.floor,
+}
 
-        if not isinstance(old_values, list):
-            old_values = []
+_SAFE_STRING_METHODS = {
+    "lower",
+    "upper",
+    "strip",
+    "lstrip",
+    "rstrip",
+    "title",
+    "capitalize",
+    "replace",
+    "startswith",
+    "endswith",
+}
 
-        for old in old_values:
-            if old is None or str(old).strip() == "":
-                continue
-            replacements[old] = new_value
+_SAFE_DATE_ATTRIBUTES = {"year", "month", "day"}
 
-    return replacements
 
-def apply_replacements(series: pd.Series, replacements: dict) -> pd.Series:
-    return series.replace(replacements) if replacements else series
+def _is_missing(value: Any) -> bool:
+    if value is None:
+        return True
 
-def get_mean_value(series: pd.Series):
-    s = pd.to_numeric(series, errors="coerce").dropna()
-    if s.empty:
-        return 0
-    return float(s.mean())
+    try:
+        result = pd.isna(value)
+    except (TypeError, ValueError):
+        return False
 
-def handle_nulls(
+    return isinstance(result, (bool, np.bool_)) and bool(result)
+
+
+def _normalize_value(value: Any) -> Any:
+    """Convert missing scalar values to None while keeping ordinary values."""
+    return None if _is_missing(value) else value
+
+
+def _check_result_size(value: Any) -> Any:
+    if isinstance(value, str) and len(value) > _MAX_RESULT_STRING_LENGTH:
+        raise SafeExpressionError("Formula result is too large.")
+    return value
+
+
+class _SafeAstEvaluator:
+    def __init__(self, variables: dict[str, Any]):
+        self.variables = {
+            str(name): _normalize_value(value)
+            for name, value in variables.items()
+        }
+
+    def evaluate(self, expression: str) -> Any:
+        if not isinstance(expression, str) or not expression.strip():
+            raise SafeExpressionError("Formula cannot be empty.")
+
+        if len(expression) > _MAX_EXPRESSION_LENGTH:
+            raise SafeExpressionError("Formula is too long.")
+
+        try:
+            tree = ast.parse(expression, mode="eval")
+        except SyntaxError as exc:
+            raise SafeExpressionError("Invalid formula syntax.") from exc
+
+        if sum(1 for _ in ast.walk(tree)) > _MAX_AST_NODES:
+            raise SafeExpressionError("Formula is too complex.")
+
+        return _check_result_size(self._visit(tree.body))
+
+    def _visit(self, node: ast.AST) -> Any:
+        method = getattr(self, f"_visit_{type(node).__name__}", None)
+        if method is None:
+            raise SafeExpressionError(
+                f"Expression element '{type(node).__name__}' is not allowed."
+            )
+        return method(node)
+
+    def _visit_Constant(self, node: ast.Constant) -> Any:
+        if isinstance(node.value, (str, int, float, bool, type(None))):
+            return node.value
+        raise SafeExpressionError("This literal value is not allowed.")
+
+    def _visit_Name(self, node: ast.Name) -> Any:
+        if node.id.startswith("__"):
+            raise SafeExpressionError("Private names are not allowed.")
+        if node.id not in self.variables:
+            raise SafeExpressionError(f"Unknown column or variable: {node.id}")
+        return self.variables[node.id]
+
+    def _visit_List(self, node: ast.List) -> list[Any]:
+        return [self._visit(item) for item in node.elts]
+
+    def _visit_Tuple(self, node: ast.Tuple) -> tuple[Any, ...]:
+        return tuple(self._visit(item) for item in node.elts)
+
+    def _visit_Set(self, node: ast.Set) -> set[Any]:
+        return {self._visit(item) for item in node.elts}
+
+    def _visit_BinOp(self, node: ast.BinOp) -> Any:
+        operation = _BINARY_OPERATORS.get(type(node.op))
+        if operation is None:
+            raise SafeExpressionError("This arithmetic operator is not allowed.")
+
+        left = self._visit(node.left)
+        right = self._visit(node.right)
+
+        if isinstance(node.op, ast.Pow):
+            if not isinstance(right, (int, float)) or abs(right) > _MAX_POWER_EXPONENT:
+                raise SafeExpressionError("Exponent is outside the allowed range.")
+
+        if isinstance(node.op, ast.Mult):
+            if isinstance(left, str) and isinstance(right, int):
+                if len(left) * max(right, 0) > _MAX_RESULT_STRING_LENGTH:
+                    raise SafeExpressionError("Formula result is too large.")
+            if isinstance(right, str) and isinstance(left, int):
+                if len(right) * max(left, 0) > _MAX_RESULT_STRING_LENGTH:
+                    raise SafeExpressionError("Formula result is too large.")
+
+        try:
+            return _check_result_size(operation(left, right))
+        except (ArithmeticError, TypeError, ValueError) as exc:
+            raise SafeExpressionError("Invalid arithmetic operation.") from exc
+
+    def _visit_UnaryOp(self, node: ast.UnaryOp) -> Any:
+        operation = _UNARY_OPERATORS.get(type(node.op))
+        if operation is None:
+            raise SafeExpressionError("This unary operator is not allowed.")
+        try:
+            return operation(self._visit(node.operand))
+        except (ArithmeticError, TypeError, ValueError) as exc:
+            raise SafeExpressionError("Invalid unary operation.") from exc
+
+    def _visit_BoolOp(self, node: ast.BoolOp) -> Any:
+        if isinstance(node.op, ast.And):
+            result = self._visit(node.values[0])
+            for value_node in node.values[1:]:
+                if not bool(result):
+                    return result
+                result = self._visit(value_node)
+            return result
+
+        if isinstance(node.op, ast.Or):
+            result = self._visit(node.values[0])
+            for value_node in node.values[1:]:
+                if bool(result):
+                    return result
+                result = self._visit(value_node)
+            return result
+
+        raise SafeExpressionError("This boolean operator is not allowed.")
+
+    def _visit_Compare(self, node: ast.Compare) -> bool:
+        left = self._visit(node.left)
+
+        for operator_node, comparator_node in zip(node.ops, node.comparators):
+            operation = _COMPARISON_OPERATORS.get(type(operator_node))
+            if operation is None:
+                raise SafeExpressionError("This comparison is not allowed.")
+
+            right = self._visit(comparator_node)
+            try:
+                if not bool(operation(left, right)):
+                    return False
+            except (TypeError, ValueError) as exc:
+                raise SafeExpressionError("Invalid comparison.") from exc
+            left = right
+
+        return True
+
+    def _visit_IfExp(self, node: ast.IfExp) -> Any:
+        branch = node.body if bool(self._visit(node.test)) else node.orelse
+        return self._visit(branch)
+
+    def _visit_Attribute(self, node: ast.Attribute) -> Any:
+        if node.attr.startswith("_"):
+            raise SafeExpressionError("Private attributes are not allowed.")
+
+        value = self._visit(node.value)
+        if isinstance(value, (date, datetime, pd.Timestamp)) and node.attr in _SAFE_DATE_ATTRIBUTES:
+            return getattr(value, node.attr)
+
+        raise SafeExpressionError("Direct attribute access is not allowed.")
+
+    def _visit_Call(self, node: ast.Call) -> Any:
+        if any(keyword.arg is None for keyword in node.keywords):
+            raise SafeExpressionError("Expanded keyword arguments are not allowed.")
+
+        args = [self._visit(arg) for arg in node.args]
+        kwargs = {
+            keyword.arg: self._visit(keyword.value)
+            for keyword in node.keywords
+        }
+
+        if isinstance(node.func, ast.Name):
+            function_name = node.func.id
+
+            if function_name == "col":
+                if kwargs or len(args) != 1 or not isinstance(args[0], str):
+                    raise SafeExpressionError("col() expects one column name string.")
+                if args[0] not in self.variables:
+                    raise SafeExpressionError(f"Unknown column: {args[0]}")
+                return self.variables[args[0]]
+
+            if function_name == "is_missing":
+                if kwargs or len(args) != 1:
+                    raise SafeExpressionError("is_missing() expects one value.")
+                return _is_missing(args[0])
+
+            function = _SAFE_FUNCTIONS.get(function_name)
+            if function is None:
+                raise SafeExpressionError(f"Function '{function_name}' is not allowed.")
+
+            try:
+                return _check_result_size(function(*args, **kwargs))
+            except (ArithmeticError, TypeError, ValueError) as exc:
+                raise SafeExpressionError(f"Invalid call to {function_name}().") from exc
+
+        if isinstance(node.func, ast.Attribute):
+            method_name = node.func.attr
+            if method_name.startswith("_") or method_name not in _SAFE_STRING_METHODS:
+                raise SafeExpressionError(f"Method '{method_name}' is not allowed.")
+
+            value = self._visit(node.func.value)
+            if not isinstance(value, str):
+                raise SafeExpressionError(
+                    f"Method '{method_name}' can only be used on text values."
+                )
+
+            if kwargs:
+                raise SafeExpressionError("Keyword arguments are not allowed for text methods.")
+
+            try:
+                result = getattr(value, method_name)(*args)
+                return _check_result_size(result)
+            except (TypeError, ValueError) as exc:
+                raise SafeExpressionError(f"Invalid call to {method_name}().") from exc
+
+        raise SafeExpressionError("Only approved functions and text methods are allowed.")
+
+
+def _safe_eval_expression(expr: str, row: dict[str, Any]) -> Any:
+    """Evaluate a user expression without executing arbitrary Python code.
+
+    Column names that are valid Python identifiers can be used directly. For
+    names containing spaces or punctuation, use ``col("Column name")``.
+    """
+    return _SafeAstEvaluator(row).evaluate(expr)
+
+
+def _evaluate_braced_expression(inner: str, row: dict[str, Any]) -> Any:
+    """Evaluate the contents of ``{...}``, including exact non-identifier names."""
+    expression = inner.strip()
+    if expression in row:
+        return _normalize_value(row[expression])
+    return _safe_eval_expression(expression, row)
+
+
+def _bind_braced_expressions(
+    expression: str,
+    row: dict[str, Any],
+) -> tuple[str, dict[str, Any]]:
+    """Replace each ``{...}`` expression with an internal safe variable."""
+    bound_values: dict[str, Any] = {}
+
+    def replacer(match: re.Match[str]) -> str:
+        variable_name = f"_formula_value_{len(bound_values)}"
+        bound_values[variable_name] = _evaluate_braced_expression(
+            match.group(1), row
+        )
+        return variable_name
+
+    rendered = re.sub(r"\{(.*?)}", replacer, expression)
+    return rendered, bound_values
+
+
+def _render_text_template(template: str, row: dict[str, Any]) -> str:
+    def replacer(match: re.Match[str]) -> str:
+        try:
+            value = _evaluate_braced_expression(match.group(1), row)
+            return "" if _is_missing(value) else str(value)
+        except SafeExpressionError as exc:
+            return f"[ERROR: {exc}]"
+
+    return re.sub(r"\{(.*?)}", replacer, template)
+
+
+def _apply_null_formula_text(
     df: pd.DataFrame,
     column_name: str,
-    strategy: str,
-    fill_value=None,
-    column_config: dict | None = None,
+    template: str,
 ) -> pd.DataFrame:
-    """Apply the configured null strategy to one column."""
-    if column_name not in df.columns:
-        return df
-
     df = df.copy()
-    column_config = column_config or {}
-
-    if strategy == "keep":
+    mask = df[column_name].isna()
+    if not mask.any():
         return df
 
-    if strategy == "drop":
-        return df.loc[df[column_name].notna()].copy()
-
-    if strategy == "fill":
-        df[column_name] = df[column_name].fillna(fill_value)
-        return df
-
-    if strategy == "fill_true":
-        df[column_name] = df[column_name].fillna(True)
-        return df
-
-    if strategy == "fill_false":
-        df[column_name] = df[column_name].fillna(False)
-        return df
-
-    if strategy == "fill_mode":
-        mode_value = get_mode_value(df[column_name])
-        df[column_name] = df[column_name].fillna(mode_value)
-        return df
-
-    if strategy == "fill_mean":
-        mean_value = get_mean_value(df[column_name])
-        df[column_name] = df[column_name].fillna(mean_value)
-        return df
-
-    if strategy == "fill_median":
-        median_value = get_median_value(df[column_name])
-        df[column_name] = df[column_name].fillna(median_value)
-        return df
-
-    if strategy == "fill_formula_text":
-        template = column_config.get("null_formula_text", "").strip()
-        if template:
-            return _apply_null_formula_text(df, column_name, template)
-        return df
-
-    if strategy == "fill_formula_numeric":
-        expression = column_config.get("null_formula_numeric", "").strip()
-        if expression:
-            return _apply_null_formula_numeric(df, column_name, expression)
-        return df
-
-    if strategy == "fill_formula_boolean":
-        expression = column_config.get("null_formula_boolean", "").strip()
-        if expression:
-            return _apply_null_formula_boolean(df, column_name, expression)
-        return df
-
+    df.loc[mask, column_name] = df.loc[mask].apply(
+        lambda row: _render_text_template(template, row.to_dict()),
+        axis=1,
+    )
     return df
 
-def convert_series_to_boolean(series: pd.Series, true_value: str, false_value: str, other_strategy: str = "null") -> pd.Series:
-    true_value_norm = str(true_value).strip().lower()
-    false_value_norm = str(false_value).strip().lower()
 
-    def mapper(x):
-        if pd.isna(x):
-            return None
-
-        x_norm = str(x).strip().lower()
-
-        if x_norm == true_value_norm:
-            return True
-        if x_norm == false_value_norm:
-            return False
-
-        if other_strategy == "true":
-            return True
-        if other_strategy == "false":
-            return False
-        if other_strategy == "drop":
-            return "__DROP__"
-
-        return None
-
-    return series.map(mapper)
-
-def get_numeric_outlier_info(series: pd.Series, multiplier: float = 1.5) -> dict:
-    s = pd.to_numeric(series, errors="coerce").dropna()
-
-    if s.empty:
-        return {
-            "count": 0,
-            "lower_bound": None,
-            "upper_bound": None,
-            "examples": [],
-        }
-
-    q1 = s.quantile(0.25)
-    q3 = s.quantile(0.75)
-    iqr = q3 - q1
-
-    if pd.isna(iqr) or iqr == 0:
-        return {
-            "count": 0,
-            "lower_bound": q1,
-            "upper_bound": q3,
-            "examples": [],
-        }
-
-    lower = q1 - multiplier * iqr
-    upper = q3 + multiplier * iqr
-
-    outliers = s[(s < lower) | (s > upper)]
-
-    return {
-        "count": int(outliers.shape[0]),
-        "lower_bound": float(lower),
-        "upper_bound": float(upper),
-        "examples": outliers.sort_values().tolist()[:10],
-    }
-
-def apply_user_config(df: pd.DataFrame, config: dict) -> pd.DataFrame:
-    """Apply column cleaning rules in a predictable two-pass pipeline."""
-    clean_df = df.copy()
-
-    column_configs = {
-        col: cfg
-        for col, cfg in config.items()
-        if isinstance(cfg, dict) and col in clean_df.columns
-    }
-
-    # First pass: replacements and type conversion for every column.
-    # Converting all columns first makes formulas that reference other columns reliable.
-    for col, cfg in column_configs.items():
-        visual_replacements = parse_replacements(cfg.get("replacements", []))
-
-        # Backwards compatibility with the old {"old": ..., "new": ...} shape.
-        for item in cfg.get("replacements", []) or []:
-            if isinstance(item, dict) and item.get("old") is not None:
-                visual_replacements[item["old"]] = item.get("new")
-
-        manual_replacements = parse_replacements_text(
-            cfg.get("replacements_text", "")
-        )
-        all_replacements = {**visual_replacements, **manual_replacements}
-        clean_df[col] = apply_replacements(clean_df[col], all_replacements)
-
-        final_type = cfg.get("final_type", "text")
-
-        if final_type == "number":
-            clean_df[col] = pd.to_numeric(clean_df[col], errors="coerce")
-
-        elif final_type == "date":
-            clean_df[col] = pd.to_datetime(clean_df[col], errors="coerce")
-
-        elif final_type == "boolean":
-            mapped = convert_series_to_boolean(
-                clean_df[col],
-                cfg.get("true_value", ""),
-                cfg.get("false_value", ""),
-                cfg.get("other_values_strategy", "null"),
-            )
-
-            if cfg.get("other_values_strategy") == "drop":
-                keep_mask = mapped != "__DROP__"
-                clean_df = clean_df.loc[keep_mask].copy()
-                mapped = mapped.loc[keep_mask]
-
-            clean_df[col] = mapped.replace("__DROP__", pd.NA).astype("boolean")
-
-        else:
-            clean_df[col] = clean_df[col].astype("string")
-
-    # Second pass: null rules and outliers after all source columns have types.
-    for col, cfg in column_configs.items():
-        if col not in clean_df.columns:
-            continue
-
-        clean_df = handle_nulls(
-            clean_df,
-            column_name=col,
-            strategy=cfg.get("null_strategy", "keep"),
-            fill_value=cfg.get("null_fill_value"),
-            column_config=cfg,
-        )
-
-        # Restore the intended dtype after formula/custom filling.
-        final_type = cfg.get("final_type", "text")
-        if final_type == "number":
-            clean_df[col] = pd.to_numeric(clean_df[col], errors="coerce")
-            clean_df = handle_outliers(clean_df, col, col_config=cfg)
-        elif final_type == "date":
-            clean_df[col] = pd.to_datetime(clean_df[col], errors="coerce")
-        elif final_type == "boolean":
-            clean_df[col] = clean_df[col].astype("boolean")
-
-    return clean_df
-
-def detect_duplicate_columns(df: pd.DataFrame) -> list[tuple[str, str]]:
-    duplicates = []
-    cols = df.columns.tolist()
-    for i in range(len(cols)):
-        for j in range(i+1, len(cols)):
-            if df[cols[i]].equals(df[cols[j]]):
-                duplicates.append((cols[i], cols[j]))
-    return duplicates
-
-def handle_duplicate_columns(df: pd.DataFrame) -> pd.DataFrame:
-    df_clean = df.copy()
-    # Lista e kolonave të fshira
-    cols_to_drop = []
-    cols = df_clean.columns.tolist()
-    for i in range(len(cols)):
-        for j in range(i + 1, len(cols)):
-            if cols[i] in cols_to_drop or cols[j] in cols_to_drop:
-                continue
-            if df_clean[cols[i]].equals(df_clean[cols[j]]):
-                st.warning(f"Columns `{cols[i]}` and `{cols[j]}` are identical. `{cols[j]}` will be removed automatically.")
-                cols_to_drop.append(cols[j])
-    df_clean.drop(columns=cols_to_drop, inplace=True)
-    return df_clean
-
-def read_uploaded_dataset(uploaded_file):
-    filename = uploaded_file.name.lower()
-
-    if filename.endswith(".xlsx") or filename.endswith(".xls"):
-        return pd.read_excel(uploaded_file)
-
-    if filename.endswith(".csv"):
-        return pd.read_csv(uploaded_file)
-
-    if filename.endswith(".tsv"):
-        return pd.read_csv(uploaded_file, sep="\t")
-
-    raise ValueError("Unsupported file format")
-
-def handle_outliers(df: pd.DataFrame, column_name: str, col_config: dict) -> pd.DataFrame:
-    strategy = col_config.get("outlier_strategy", "none")
-    if strategy == "none":
+def _apply_null_formula_numeric(
+    df: pd.DataFrame,
+    column_name: str,
+    expr: str,
+) -> pd.DataFrame:
+    df = df.copy()
+    mask = df[column_name].isna()
+    if not mask.any():
         return df
 
-    series = pd.to_numeric(df[column_name], errors="coerce")
+    def compute(row: pd.Series) -> Any:
+        row_dict = row.to_dict()
+        try:
+            rendered, bound_values = _bind_braced_expressions(expr, row_dict)
+            variables = {**row_dict, **bound_values}
+            value = _safe_eval_expression(rendered, variables)
+            if _is_missing(value) or isinstance(value, bool):
+                return np.nan
+            return pd.to_numeric(value, errors="coerce")
+        except (SafeExpressionError, TypeError, ValueError):
+            return np.nan
 
-    if strategy in ["cap_iqr", "drop_iqr"]:
-        multiplier = float(col_config.get("outlier_iqr_multiplier", 1.5))
-        q1 = series.quantile(0.25)
-        q3 = series.quantile(0.75)
-        iqr = q3 - q1
+    df.loc[mask, column_name] = df.loc[mask].apply(compute, axis=1)
+    return df
 
-        if pd.isna(iqr) or iqr == 0:
-            return df
 
-        lower = q1 - multiplier * iqr
-        upper = q3 + multiplier * iqr
+def _apply_null_formula_boolean(
+    df: pd.DataFrame,
+    column_name: str,
+    expr: str,
+) -> pd.DataFrame:
+    df = df.copy()
+    mask = df[column_name].isna()
+    if not mask.any():
+        return df
 
-        if strategy == "cap_iqr":
-            df[column_name] = series.clip(lower=lower, upper=upper)
-            return df
+    # A column containing only NaN values is often float64. Convert it before
+    # assigning booleans to avoid incompatible-dtype assignments in pandas.
+    df[column_name] = df[column_name].astype("object")
 
-        if strategy == "drop_iqr":
-            return df[(series.isna()) | ((series >= lower) & (series <= upper))]
+    def compute(row: pd.Series) -> Any:
+        row_dict = row.to_dict()
+        try:
+            rendered, bound_values = _bind_braced_expressions(expr, row_dict)
+            variables = {**row_dict, **bound_values}
+            value = _safe_eval_expression(rendered, variables)
+            return np.nan if _is_missing(value) else bool(value)
+        except (SafeExpressionError, TypeError, ValueError):
+            return np.nan
 
-    if strategy in ["cap_zscore", "drop_zscore"]:
-        threshold = float(col_config.get("outlier_zscore_threshold", 3.0))
-        mean = series.mean()
-        std = series.std()
-
-        if pd.isna(std) or std == 0:
-            return df
-
-        zscores = (series - mean) / std
-
-        if strategy == "cap_zscore":
-            lower = mean - threshold * std
-            upper = mean + threshold * std
-            df[column_name] = series.clip(lower=lower, upper=upper)
-            return df
-
-        if strategy == "drop_zscore":
-            return df[(series.isna()) | (zscores.abs() <= threshold)]
-
+    df.loc[mask, column_name] = df.loc[mask].apply(compute, axis=1)
     return df
