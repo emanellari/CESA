@@ -62,24 +62,31 @@ def handle_nulls(
     column_name: str,
     strategy: str,
     fill_value=None,
-    column_config: dict | None = None
+    column_config: dict | None = None,
 ) -> pd.DataFrame:
-    df = df.copy()
+    """Apply the configured null strategy to one column."""
+    if column_name not in df.columns:
+        return df
 
-    print("---- HANDLE_NULLS ----")
-    print("column_name:", column_name)
-    print("strategy:", strategy)
-    print("fill_value:", fill_value)
-    print("column_config:", column_config)
+    df = df.copy()
+    column_config = column_config or {}
 
     if strategy == "keep":
         return df
 
     if strategy == "drop":
-        return df[df[column_name].notna()]
+        return df.loc[df[column_name].notna()].copy()
 
     if strategy == "fill":
         df[column_name] = df[column_name].fillna(fill_value)
+        return df
+
+    if strategy == "fill_true":
+        df[column_name] = df[column_name].fillna(True)
+        return df
+
+    if strategy == "fill_false":
+        df[column_name] = df[column_name].fillna(False)
         return df
 
     if strategy == "fill_mode":
@@ -98,22 +105,21 @@ def handle_nulls(
         return df
 
     if strategy == "fill_formula_text":
-        print("ENTERED fill_formula_text")
-        if column_config:
-            template = column_config.get("null_formula_text", "")
-            print("template:", template)
-            print("BEFORE")
-            print(df[[column_name]].head(10))
-            if template:
-                mask = df[column_name].isna()
-                print("null_count:", int(mask.sum()))
-                df.loc[mask, column_name] = df.loc[mask].apply(
-                    lambda row: _render_text_template(template, row.to_dict()),
-                    axis=1
-                )
-                print("after handle_nulls sample:")
-                print(df[[column_name]].head(10))
+        template = column_config.get("null_formula_text", "").strip()
+        if template:
+            return _apply_null_formula_text(df, column_name, template)
+        return df
 
+    if strategy == "fill_formula_numeric":
+        expression = column_config.get("null_formula_numeric", "").strip()
+        if expression:
+            return _apply_null_formula_numeric(df, column_name, expression)
+        return df
+
+    if strategy == "fill_formula_boolean":
+        expression = column_config.get("null_formula_boolean", "").strip()
+        if expression:
+            return _apply_null_formula_boolean(df, column_name, expression)
         return df
 
     return df
@@ -180,113 +186,80 @@ def get_numeric_outlier_info(series: pd.Series, multiplier: float = 1.5) -> dict
     }
 
 def apply_user_config(df: pd.DataFrame, config: dict) -> pd.DataFrame:
-    df = df.copy()
-
-    for col_name, col_cfg in config.items():
-        if not isinstance(col_cfg, dict):
-            continue
-
-        # 1) Handle nulls first
-        df = handle_nulls(
-            df,
-            column_name=col_name,
-            strategy=col_cfg.get("null_strategy", "keep"),
-            fill_value=col_cfg.get("null_fill_value"),
-            column_config=col_cfg
-        )
-
-        # 2) Apply manual replacements if any
-        replacements = col_cfg.get("replacements", [])
-        if replacements:
-            replace_map = {}
-            for item in replacements:
-                old_value = item.get("old")
-                new_value = item.get("new")
-                if old_value is not None:
-                    replace_map[old_value] = new_value
-
-            if replace_map:
-                df[col_name] = df[col_name].replace(replace_map)
-
-        # 3) Type conversions
-        final_type = col_cfg.get("final_type", "text")
-
-        if final_type == "number":
-            df[col_name] = pd.to_numeric(df[col_name], errors="coerce")
-
-        elif final_type == "date":
-            df[col_name] = pd.to_datetime(df[col_name], errors="coerce")
-
-        elif final_type == "boolean":
-            true_value = col_cfg.get("true_value", "")
-            false_value = col_cfg.get("false_value", "")
-            other_strategy = col_cfg.get("other_values_strategy", "null")
-
-            def map_boolean(v):
-                if pd.isna(v):
-                    return pd.NA
-
-                if str(v) == str(true_value):
-                    return True
-                if str(v) == str(false_value):
-                    return False
-
-                if other_strategy == "true":
-                    return True
-                if other_strategy == "false":
-                    return False
-                if other_strategy == "drop":
-                    return "__DROP_ROW__"
-
-                return pd.NA
-
-            mapped = df[col_name].apply(map_boolean)
-
-            if other_strategy == "drop":
-                keep_mask = mapped != "__DROP_ROW__"
-                df = df[keep_mask].copy()
-                mapped = mapped[keep_mask]
-
-            df[col_name] = mapped.replace("__DROP_ROW__", pd.NA)
-
-        else:
-            df[col_name] = df[col_name].astype("string")
-
-    return df
+    """Apply column cleaning rules in a predictable two-pass pipeline."""
     clean_df = df.copy()
-    for col, cfg in config.items():
+
+    column_configs = {
+        col: cfg
+        for col, cfg in config.items()
+        if isinstance(cfg, dict) and col in clean_df.columns
+    }
+
+    # First pass: replacements and type conversion for every column.
+    # Converting all columns first makes formulas that reference other columns reliable.
+    for col, cfg in column_configs.items():
         visual_replacements = parse_replacements(cfg.get("replacements", []))
-        manual_replacements = parse_replacements_text(cfg.get("replacements_text", ""))
 
-        # si hay conflicto, el manual pisa al visual
+        # Backwards compatibility with the old {"old": ..., "new": ...} shape.
+        for item in cfg.get("replacements", []) or []:
+            if isinstance(item, dict) and item.get("old") is not None:
+                visual_replacements[item["old"]] = item.get("new")
+
+        manual_replacements = parse_replacements_text(
+            cfg.get("replacements_text", "")
+        )
         all_replacements = {**visual_replacements, **manual_replacements}
-
         clean_df[col] = apply_replacements(clean_df[col], all_replacements)
 
-        if cfg.get("final_type") == "date":
+        final_type = cfg.get("final_type", "text")
+
+        if final_type == "number":
+            clean_df[col] = pd.to_numeric(clean_df[col], errors="coerce")
+
+        elif final_type == "date":
             clean_df[col] = pd.to_datetime(clean_df[col], errors="coerce")
 
-        if cfg.get("final_type") == "boolean":
-            clean_df[col] = convert_series_to_boolean(
+        elif final_type == "boolean":
+            mapped = convert_series_to_boolean(
                 clean_df[col],
                 cfg.get("true_value", ""),
                 cfg.get("false_value", ""),
-                cfg.get("other_values_strategy", "null")
+                cfg.get("other_values_strategy", "null"),
             )
+
             if cfg.get("other_values_strategy") == "drop":
-                clean_df = clean_df[clean_df[col] != "__DROP__"]
+                keep_mask = mapped != "__DROP__"
+                clean_df = clean_df.loc[keep_mask].copy()
+                mapped = mapped.loc[keep_mask]
 
-        if cfg.get("final_type") == "number":
-            clean_df[col] = pd.to_numeric(clean_df[col], errors="coerce")
+            clean_df[col] = mapped.replace("__DROP__", pd.NA).astype("boolean")
 
+        else:
+            clean_df[col] = clean_df[col].astype("string")
+
+    # Second pass: null rules and outliers after all source columns have types.
+    for col, cfg in column_configs.items():
+        if col not in clean_df.columns:
+            continue
 
         clean_df = handle_nulls(
-            df,
+            clean_df,
             column_name=col,
-            strategy=config[col].get("null_strategy", "keep"),
-            fill_value=config[col].get("null_fill_value"),
-            column_config=config[col])
-        clean_df= handle_outliers(clean_df, col, col_config=config[col])
+            strategy=cfg.get("null_strategy", "keep"),
+            fill_value=cfg.get("null_fill_value"),
+            column_config=cfg,
+        )
+
+        # Restore the intended dtype after formula/custom filling.
+        final_type = cfg.get("final_type", "text")
+        if final_type == "number":
+            clean_df[col] = pd.to_numeric(clean_df[col], errors="coerce")
+            clean_df = handle_outliers(clean_df, col, col_config=cfg)
+        elif final_type == "date":
+            clean_df[col] = pd.to_datetime(clean_df[col], errors="coerce")
+        elif final_type == "boolean":
+            clean_df[col] = clean_df[col].astype("boolean")
+
     return clean_df
 
 def detect_duplicate_columns(df: pd.DataFrame) -> list[tuple[str, str]]:
