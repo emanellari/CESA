@@ -126,6 +126,7 @@ def apply_config_transformations(df: pd.DataFrame, config: dict) -> pd.DataFrame
     df = df.copy()
 
     for col, cfg in config.items():
+
         if not isinstance(cfg, dict):
             continue
 
@@ -135,6 +136,7 @@ def apply_config_transformations(df: pd.DataFrame, config: dict) -> pd.DataFrame
         # =========================
         # MULTI HOT (ARREGLADO)
         # =========================
+
         if cfg.get("multi_hot_enabled"):
             raw = cfg.get("multi_hot_keywords", "")
 
@@ -173,7 +175,6 @@ def apply_config_transformations(df: pd.DataFrame, config: dict) -> pd.DataFrame
                 "",
                 regex=True
             )
-
         # =========================
         # SPLIT COLUMN
         # =========================

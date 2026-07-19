@@ -286,19 +286,6 @@ def handle_duplicate_columns(df: pd.DataFrame) -> pd.DataFrame:
     df_clean.drop(columns=cols_to_drop, inplace=True)
     return df_clean
 
-def read_uploaded_dataset(uploaded_file):
-    filename = uploaded_file.name.lower()
-
-    if filename.endswith(".xlsx") or filename.endswith(".xls"):
-        return pd.read_excel(uploaded_file)
-
-    if filename.endswith(".csv"):
-        return pd.read_csv(uploaded_file)
-
-    if filename.endswith(".tsv"):
-        return pd.read_csv(uploaded_file, sep="\t")
-
-    raise ValueError("Unsupported file format")
 
 def handle_outliers(df: pd.DataFrame, column_name: str, col_config: dict) -> pd.DataFrame:
     strategy = col_config.get("outlier_strategy", "none")
@@ -346,3 +333,17 @@ def handle_outliers(df: pd.DataFrame, column_name: str, col_config: dict) -> pd.
             return df[(series.isna()) | (zscores.abs() <= threshold)]
 
     return df
+
+def read_uploaded_dataset(uploaded_file):
+    filename = uploaded_file.name.lower()
+
+    if filename.endswith((".xlsx", ".xls")):
+        return pd.read_excel(uploaded_file)
+
+    if filename.endswith(".csv"):
+        return pd.read_csv(uploaded_file)
+
+    if filename.endswith(".tsv"):
+        return pd.read_csv(uploaded_file, sep="\t")
+
+    raise ValueError("Unsupported file format")

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+Tfrom fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 import pandas as pd
 import json
@@ -32,7 +32,7 @@ def stats(
     ).first()
 
     if not dataset:
-        raise HTTPException(status_code=404, detail="Dataset no encontrado")
+        raise HTTPException(status_code=404, detail="Dataset missing")
 
     data = json.loads(dataset.data_json)
     df = pd.DataFrame(data)
@@ -41,7 +41,7 @@ def stats(
     kind = payload.get("kind")
 
     if column_name not in df.columns:
-        raise HTTPException(status_code=400, detail="Columna inválida")
+        raise HTTPException(status_code=400, detail="inalid column")
 
     col = df[column_name].fillna("").tolist()
 
@@ -59,4 +59,4 @@ def stats(
         numeric = [float(x) for x in col if is_number(x)]
         return {"values": numeric}
 
-    raise HTTPException(status_code=400, detail="Tipo de estadística inválido")
+    raise HTTPException(status_code=400, detail="Invalid statistics type")

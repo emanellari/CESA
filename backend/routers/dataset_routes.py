@@ -1,20 +1,36 @@
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
+import csv
 import io
 import json
+import zipfile
 
 import pandas as pd
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
+from pandas.errors import EmptyDataError, ParserError
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from ..db import SessionLocal
-from ..models import Dataset, User
 from ..deps import get_current_user
+from ..models import Dataset, User
+
 
 router = APIRouter(prefix="/dataset", tags=["dataset"])
+
+ALLOWED_EXTENSIONS = {".xlsx", ".xls", ".csv", ".tsv"}
+ALLOWED_FIELD_TYPES = {
+    "text",
+    "number",
+    "date",
+    "radio",
+    "checkbox",
+    "select",
+}
+
+XLS_SIGNATURE = b"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1"
 
 
 def get_db():
@@ -25,12 +41,21 @@ def get_db():
         db.close()
 
 
-# -------------------------
-# Pydantic payloads
-# -------------------------
+# -------------------------------------------------------------------
+# Request models
+# -------------------------------------------------------------------
+
 class FieldConfig(BaseModel):
-    type: Literal["text", "number", "date", "radio", "checkbox", "select"]
+    type: Literal[
+        "text",
+        "number",
+        "date",
+        "radio",
+        "checkbox",
+        "select",
+    ]
     options: List[str] = Field(default_factory=list)
+
 
 class CreateDatasetPayload(BaseModel):
     name: str = Field(..., min_length=1)
@@ -42,75 +67,68 @@ class UpdateDatasetPayload(BaseModel):
     rows: List[Dict[str, Any]] = Field(default_factory=list)
 
 
-def _require_owned_dataset(db: Session, user: User, dataset_id: int) -> Dataset:
+# -------------------------------------------------------------------
+# Dataset helpers
+# -------------------------------------------------------------------
+
+def _require_owned_dataset(
+    db: Session,
+    user: User,
+    dataset_id: int,
+) -> Dataset:
     dataset = (
         db.query(Dataset)
-        .filter(Dataset.id == dataset_id, Dataset.user_id == user.id)
+        .filter(
+            Dataset.id == dataset_id,
+            Dataset.user_id == user.id,
+        )
         .first()
     )
-    if not dataset:
-        raise HTTPException(status_code=404, detail="Dataset no encontrado")
+
+    if dataset is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Dataset not found.",
+        )
+
     return dataset
 
 
-def _safe_load_json(s: Optional[str], default):
-    if not s:
+def _safe_load_json(value: Optional[str], default: Any) -> Any:
+    if not value:
         return default
+
     try:
-        return json.loads(s)
-    except Exception:
+        return json.loads(value)
+    except (TypeError, json.JSONDecodeError):
         return default
-
-
-def _read_delimited_file(content: bytes, separator: str) -> pd.DataFrame:
-    """Read CSV/TSV bytes, accepting UTF-8 and common Windows encodings."""
-    last_error: Optional[Exception] = None
-
-    for encoding in ("utf-8-sig", "utf-8", "cp1252", "latin-1"):
-        try:
-            return pd.read_csv(
-                io.BytesIO(content),
-                sep=separator,
-                encoding=encoding,
-            )
-        except UnicodeDecodeError as exc:
-            last_error = exc
-
-    raise ValueError("No se pudo detectar la codificación del archivo") from last_error
-
-
-def _read_uploaded_dataframe(content: bytes, extension: str) -> pd.DataFrame:
-    """Read an uploaded tabular file using the parser required by its extension."""
-    stream = io.BytesIO(content)
-
-    if extension == ".xlsx":
-        return pd.read_excel(stream, engine="openpyxl")
-    if extension == ".xls":
-        return pd.read_excel(stream, engine="xlrd")
-    if extension == ".csv":
-        return _read_delimited_file(content, separator=",")
-    if extension == ".tsv":
-        return _read_delimited_file(content, separator="\t")
-
-    raise ValueError(f"Formato no compatible: {extension}")
 
 
 def _normalize_columns(values: List[Any]) -> List[str]:
-    columns = [str(value).strip() for value in values]
+    normalized: List[str] = []
 
-    if not columns or any(not column for column in columns):
+    for index, value in enumerate(values):
+        column = str(value).strip()
+
+        # Remove a possible UTF-8 BOM from the first CSV header.
+        if index == 0:
+            column = column.lstrip("\ufeff")
+
+        normalized.append(column)
+
+    if not normalized or any(not column for column in normalized):
         raise HTTPException(
             status_code=400,
-            detail="Los nombres de columna no pueden estar vacíos",
+            detail="Column names cannot be empty.",
         )
 
-    if len(columns) != len(set(columns)):
+    if len(normalized) != len(set(normalized)):
         raise HTTPException(
             status_code=400,
-            detail="Los nombres de columna deben ser únicos",
+            detail="Column names must be unique.",
         )
 
-    return columns
+    return normalized
 
 
 def _parse_upload_columns(
@@ -125,12 +143,15 @@ def _parse_upload_columns(
     try:
         candidate = json.loads(columns_json)
     except (TypeError, json.JSONDecodeError) as exc:
-        raise HTTPException(status_code=400, detail="columns inválido") from exc
+        raise HTTPException(
+            status_code=400,
+            detail="The columns parameter is not valid JSON.",
+        ) from exc
 
     if not isinstance(candidate, list):
         raise HTTPException(
             status_code=400,
-            detail="columns debe ser una lista JSON",
+            detail="The columns parameter must be a JSON array.",
         )
 
     parsed = _normalize_columns(candidate)
@@ -139,55 +160,334 @@ def _parse_upload_columns(
         raise HTTPException(
             status_code=400,
             detail=(
-                "columns no coincide con el archivo: "
-                f"se esperaban {len(detected)} nombres y se recibieron {len(parsed)}"
+                "The provided column names do not match the file. "
+                f"Expected {len(detected)} names, but received "
+                f"{len(parsed)}."
             ),
         )
 
     return parsed
 
 
-# -------------------------
-# ✅ Crear dataset desde 0
+# -------------------------------------------------------------------
+# File-reading helpers
+# -------------------------------------------------------------------
+
+def _decode_text_file(content: bytes) -> Tuple[str, str]:
+    if not content:
+        raise ValueError("The uploaded file is empty.")
+
+    # Plain CSV and TSV files should not normally contain null bytes.
+    if b"\x00" in content[:4096]:
+        raise ValueError(
+            "The uploaded text file contains binary data. "
+            "Check that the filename extension matches the actual file type."
+        )
+
+    last_error: Optional[UnicodeDecodeError] = None
+
+    for encoding in (
+        "utf-8-sig",
+        "utf-8",
+        "cp1252",
+        "latin-1",
+    ):
+        try:
+            return content.decode(encoding), encoding
+        except UnicodeDecodeError as exc:
+            last_error = exc
+
+    raise ValueError(
+        "The text encoding could not be detected."
+    ) from last_error
+
+
+def _detect_delimiter(text: str, default: str = ",") -> str:
+    non_empty_lines = [
+        line
+        for line in text.splitlines()
+        if line.strip()
+    ]
+
+    if not non_empty_lines:
+        raise ValueError("The uploaded file does not contain data.")
+
+    sample = "\n".join(non_empty_lines[:25])
+
+    try:
+        dialect = csv.Sniffer().sniff(
+            sample,
+            delimiters=",;\t|",
+        )
+        return dialect.delimiter
+    except csv.Error:
+        delimiter_counts = {
+            ",": sample.count(","),
+            ";": sample.count(";"),
+            "\t": sample.count("\t"),
+            "|": sample.count("|"),
+        }
+
+        detected = max(
+            delimiter_counts,
+            key=delimiter_counts.get,
+        )
+
+        if delimiter_counts[detected] == 0:
+            return default
+
+        return detected
+
+
+def _read_delimited_file(
+    content: bytes,
+    expected_separator: Optional[str] = None,
+) -> pd.DataFrame:
+    text, _encoding = _decode_text_file(content)
+
+    if expected_separator == "\t":
+        separators = ["\t"]
+    else:
+        detected_separator = _detect_delimiter(text)
+
+        separators = [
+            detected_separator,
+            ",",
+            ";",
+            "\t",
+            "|",
+        ]
+
+    # Remove duplicates while preserving order.
+    separators = list(dict.fromkeys(separators))
+
+    last_error: Optional[Exception] = None
+    one_column_result: Optional[pd.DataFrame] = None
+
+    for separator in separators:
+        try:
+            dataframe = pd.read_csv(
+                io.StringIO(text),
+                sep=separator,
+                engine="python",
+                skipinitialspace=True,
+                keep_default_na=True,
+                on_bad_lines="error",
+            )
+
+            dataframe = dataframe.dropna(how="all")
+
+            if len(dataframe.columns) > 1:
+                return dataframe
+
+            # Keep this in case the file legitimately has one column.
+            one_column_result = dataframe
+
+        except (
+            EmptyDataError,
+            ParserError,
+            UnicodeError,
+            ValueError,
+        ) as exc:
+            last_error = exc
+
+    if one_column_result is not None:
+        return one_column_result
+
+    raise ValueError(
+        "The CSV or TSV structure could not be parsed."
+    ) from last_error
+
+
+def _read_uploaded_dataframe(
+    content: bytes,
+    extension: str,
+) -> pd.DataFrame:
+    """
+    Read the uploaded file using its real binary format when possible.
+
+    This also handles a frontend-generated XLSX file that accidentally
+    keeps its original CSV filename.
+    """
+
+    # XLSX files are ZIP containers internally.
+    if zipfile.is_zipfile(io.BytesIO(content)):
+        return pd.read_excel(
+            io.BytesIO(content),
+            engine="openpyxl",
+        )
+
+    # Legacy XLS files use the OLE compound-file signature.
+    if content.startswith(XLS_SIGNATURE):
+        return pd.read_excel(
+            io.BytesIO(content),
+            engine="xlrd",
+        )
+
+    if extension == ".xlsx":
+        return pd.read_excel(
+            io.BytesIO(content),
+            engine="openpyxl",
+        )
+
+    if extension == ".xls":
+        return pd.read_excel(
+            io.BytesIO(content),
+            engine="xlrd",
+        )
+
+    if extension == ".csv":
+        return _read_delimited_file(
+            content,
+            expected_separator=None,
+        )
+
+    if extension == ".tsv":
+        return _read_delimited_file(
+            content,
+            expected_separator="\t",
+        )
+
+    raise ValueError(
+        f"Unsupported file format: {extension}"
+    )
+
+
+def _prepare_dataframe_after_read(
+    dataframe: pd.DataFrame,
+) -> pd.DataFrame:
+    if dataframe is None:
+        raise ValueError("The file did not produce a dataset.")
+
+    dataframe = dataframe.dropna(how="all").copy()
+
+    if dataframe.columns.empty:
+        raise ValueError("The file does not contain columns.")
+
+    return dataframe
+
+
+def _parse_upload_options(
+    options_json: Optional[str],
+    original_columns: List[str],
+    final_columns: List[str],
+) -> Dict[str, Dict[str, Any]]:
+    if not options_json:
+        return {
+            column: {
+                "type": "text",
+                "options": [],
+            }
+            for column in final_columns
+        }
+
+    try:
+        raw_options = json.loads(options_json)
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise HTTPException(
+            status_code=400,
+            detail="The options parameter is not valid JSON.",
+        ) from exc
+
+    if not isinstance(raw_options, dict):
+        raise HTTPException(
+            status_code=400,
+            detail="The options parameter must be a JSON object.",
+        )
+
+    parsed_options: Dict[str, Dict[str, Any]] = {}
+
+    for original_column, final_column in zip(
+        original_columns,
+        final_columns,
+    ):
+        # Support configurations keyed by either the original name
+        # or the renamed final column name.
+        raw_config = raw_options.get(
+            final_column,
+            raw_options.get(original_column, {}),
+        )
+
+        if not isinstance(raw_config, dict):
+            raw_config = {}
+
+        field_type = raw_config.get("type", "text")
+        field_options = raw_config.get("options", [])
+
+        if field_type not in ALLOWED_FIELD_TYPES:
+            field_type = "text"
+
+        if not isinstance(field_options, list):
+            field_options = []
+
+        clean_options: List[str] = []
+
+        for option in field_options:
+            if option is None:
+                continue
+
+            clean_option = str(option).strip()
+
+            if clean_option:
+                clean_options.append(clean_option)
+
+        parsed_options[final_column] = {
+            "type": field_type,
+            "options": clean_options,
+        }
+
+    return parsed_options
+
+
+# -------------------------------------------------------------------
+# Create a dataset manually
+# -------------------------------------------------------------------
+
 @router.post("/create")
 def create_dataset(
     payload: CreateDatasetPayload,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    columns = [c.strip() for c in payload.columns if c and c.strip()]
-    if not columns:
-        raise HTTPException(status_code=400, detail="columns no puede estar vacío")
-
-    if len(columns) != len(set(columns)):
-        raise HTTPException(status_code=400, detail="Las columnas deben ser únicas")
+    columns = _normalize_columns(payload.columns)
 
     options_clean: Dict[str, Dict[str, Any]] = {}
 
-    for col, field_cfg in (payload.options or {}).items():
-        if col in columns:
-            clean_type = field_cfg.type
-            clean_options = [o.strip() for o in field_cfg.options if o and o.strip()]
+    for column, field_config in payload.options.items():
+        if column not in columns:
+            continue
 
-            options_clean[col] = {
-                "type": clean_type,
-                "options": clean_options,
-            }
+        clean_options = [
+            option.strip()
+            for option in field_config.options
+            if option and option.strip()
+        ]
 
-    for col in columns:
-        options_clean.setdefault(col, {"type": "text", "options": []})
+        options_clean[column] = {
+            "type": field_config.type,
+            "options": clean_options,
+        }
 
-    df = pd.DataFrame(columns=columns)
+    for column in columns:
+        options_clean.setdefault(
+            column,
+            {
+                "type": "text",
+                "options": [],
+            },
+        )
 
-    meta = {
+    dataframe = pd.DataFrame(columns=columns)
+
+    metadata = {
         "columns": columns,
         "options": options_clean,
     }
 
     dataset = Dataset(
-        name=payload.name,
-        data_json=df.to_json(orient="records"),
-        meta_json=json.dumps(meta),
+        name=payload.name.strip(),
+        data_json=dataframe.to_json(orient="records"),
+        meta_json=json.dumps(metadata),
         user_id=user.id,
     )
 
@@ -199,13 +499,15 @@ def create_dataset(
         "dataset_id": dataset.id,
         "name": dataset.name,
         "columns": columns,
-        "meta": meta,
+        "meta": metadata,
         "data": [],
     }
 
-# -------------------------
-# 🔹 Upload tabular file
-# -------------------------
+
+# -------------------------------------------------------------------
+# Upload CSV, TSV, XLS or XLSX
+# -------------------------------------------------------------------
+
 @router.post("/upload")
 async def upload_dataset(
     file: UploadFile = File(...),
@@ -214,104 +516,110 @@ async def upload_dataset(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    filename = file.filename or ""
+    filename = Path(file.filename or "").name
     extension = Path(filename).suffix.lower()
-    allowed_extensions = {".xlsx", ".xls", ".csv", ".tsv"}
 
-    if extension not in allowed_extensions:
+    if extension not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=400,
-            detail="Solo archivos .xlsx, .xls, .csv o .tsv",
+            detail=(
+                "Only .xlsx, .xls, .csv and .tsv files "
+                "are supported."
+            ),
         )
 
     content = await file.read()
-    if not content:
-        raise HTTPException(status_code=400, detail="El archivo está vacío")
 
-    try:
-        df = _read_uploaded_dataframe(content, extension)
-    except ImportError as exc:
-        dependency = {".xlsx": "openpyxl", ".xls": "xlrd"}.get(extension)
-        detail = (
-            f"Falta la dependencia {dependency} para leer {extension}"
-            if dependency
-            else f"Falta una dependencia para leer {extension}"
-        )
-        raise HTTPException(status_code=500, detail=detail) from exc
-    except (ValueError, OSError, UnicodeError) as exc:
+    if not content:
         raise HTTPException(
             status_code=400,
-            detail=f"No se pudo leer el archivo {extension}: {exc}",
+            detail="The uploaded file is empty.",
+        )
+
+    try:
+        dataframe = _read_uploaded_dataframe(
+            content,
+            extension,
+        )
+        dataframe = _prepare_dataframe_after_read(dataframe)
+
+    except ImportError as exc:
+        dependency = {
+            ".xlsx": "openpyxl",
+            ".xls": "xlrd",
+        }.get(extension)
+
+        if dependency:
+            message = (
+                f"The {dependency} dependency is required "
+                f"to read {extension} files."
+            )
+        else:
+            message = (
+                "A required file-reading dependency is missing."
+            )
+
+        raise HTTPException(
+            status_code=500,
+            detail=message,
         ) from exc
+
+    except (
+        ValueError,
+        OSError,
+        UnicodeError,
+        EmptyDataError,
+        ParserError,
+    ) as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"The file could not be read: {exc}",
+        ) from exc
+
     except Exception as exc:
         raise HTTPException(
             status_code=400,
-            detail=f"El archivo {extension} no es válido o está dañado",
+            detail=(
+                "The uploaded file is invalid, damaged or "
+                "does not match its filename extension."
+            ),
         ) from exc
 
-    if df.columns.empty:
-        raise HTTPException(
-            status_code=400,
-            detail="El archivo no contiene columnas",
-        )
+    original_columns = _normalize_columns(
+        list(dataframe.columns)
+    )
 
-    # Primero se procesa y valida el parámetro recibido; después se aplica al DataFrame.
-    parsed_columns = _parse_upload_columns(columns, list(df.columns))
-    df.columns = parsed_columns
-    df = df.fillna("")
+    final_columns = _parse_upload_columns(
+        columns,
+        original_columns,
+    )
 
-    # Parse options enviados desde frontend usando los nombres finales de columna.
-    parsed_options: Dict[str, Dict[str, Any]] = {}
-    if options:
-        try:
-            raw_options = json.loads(options)
-            if not isinstance(raw_options, dict):
-                raise ValueError("options debe ser objeto")
-        except (TypeError, ValueError, json.JSONDecodeError) as exc:
-            raise HTTPException(status_code=400, detail="options inválido") from exc
+    dataframe.columns = final_columns
 
-        for col in parsed_columns:
-            raw_cfg = raw_options.get(col, {})
-            if not isinstance(raw_cfg, dict):
-                raw_cfg = {}
+    parsed_options = _parse_upload_options(
+        options,
+        original_columns,
+        final_columns,
+    )
 
-            raw_type = raw_cfg.get("type", "text")
-            raw_opts = raw_cfg.get("options", [])
+    # Replace pandas missing values before JSON serialization.
+    dataframe = dataframe.where(
+        pd.notna(dataframe),
+        "",
+    )
 
-            if raw_type not in {"text", "number", "date", "radio", "checkbox", "select"}:
-                raw_type = "text"
-
-            if not isinstance(raw_opts, list):
-                raw_opts = []
-
-            clean_opts = []
-            for option in raw_opts:
-                if isinstance(option, str):
-                    option = option.strip()
-                    if option:
-                        clean_opts.append(option)
-                elif option is not None:
-                    clean_opts.append(option)
-
-            parsed_options[col] = {
-                "type": raw_type,
-                "options": clean_opts,
-            }
-    else:
-        parsed_options = {
-            col: {"type": "text", "options": []}
-            for col in parsed_columns
-        }
-
-    meta = {
-        "columns": parsed_columns,
+    metadata = {
+        "columns": final_columns,
         "options": parsed_options,
     }
 
     dataset = Dataset(
         name=filename,
-        data_json=df.to_json(orient="records"),
-        meta_json=json.dumps(meta),
+        data_json=dataframe.to_json(
+            orient="records",
+            date_format="iso",
+        ),
+        meta_json=json.dumps(metadata),
         user_id=user.id,
     )
 
@@ -322,45 +630,70 @@ async def upload_dataset(
     return {
         "dataset_id": dataset.id,
         "name": dataset.name,
-        "columns": parsed_columns,
-        "meta": meta,
-        "preview": df.head(20).to_dict(orient="records"),
+        "columns": final_columns,
+        "meta": metadata,
+        "preview": dataframe.head(20).to_dict(
+            orient="records"
+        ),
     }
 
-# -------------------------
-# 🔹 Obtener dataset
-# -------------------------
+
+# -------------------------------------------------------------------
+# Retrieve a dataset
+# -------------------------------------------------------------------
+
 @router.get("/{dataset_id}")
 def get_dataset(
     dataset_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    dataset = _require_owned_dataset(db, user, dataset_id)
+    dataset = _require_owned_dataset(
+        db,
+        user,
+        dataset_id,
+    )
 
-    data = _safe_load_json(dataset.data_json, default=[])
-    df = pd.DataFrame(data).fillna("")
+    data = _safe_load_json(
+        dataset.data_json,
+        default=[],
+    )
 
-    meta = _safe_load_json(getattr(dataset, "meta_json", None), default=None)
-    # si no hay meta en DB (datasets viejos), construimos una mínima
-    if meta is None:
-        cols = list(df.columns)
-        meta = {
-            "columns": cols,
-            "options": {c: {"type": "text", "options": []} for c in cols}
+    dataframe = pd.DataFrame(data).fillna("")
+
+    metadata = _safe_load_json(
+        getattr(dataset, "meta_json", None),
+        default=None,
+    )
+
+    # Build minimal metadata for datasets created by older versions.
+    if metadata is None:
+        columns = list(dataframe.columns)
+
+        metadata = {
+            "columns": columns,
+            "options": {
+                column: {
+                    "type": "text",
+                    "options": [],
+                }
+                for column in columns
+            },
         }
+
     return {
         "dataset_id": dataset.id,
         "name": dataset.name,
-        "columns": list(df.columns),
-        "meta": meta,
-        "data": df.to_dict(orient="records"),
+        "columns": list(dataframe.columns),
+        "meta": metadata,
+        "data": dataframe.to_dict(orient="records"),
     }
 
 
-# -------------------------
-# 🔹 Actualizar dataset (desde Streamlit editor)
-# -------------------------
+# -------------------------------------------------------------------
+# Update a dataset from the Streamlit editor
+# -------------------------------------------------------------------
+
 @router.post("/{dataset_id}/update")
 def update_dataset(
     dataset_id: int,
@@ -368,62 +701,114 @@ def update_dataset(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    dataset = _require_owned_dataset(db, user, dataset_id)
+    dataset = _require_owned_dataset(
+        db,
+        user,
+        dataset_id,
+    )
 
-    rows = payload.rows or []
-    df = pd.DataFrame(rows).fillna("")
+    dataframe = pd.DataFrame(
+        payload.rows or []
+    ).fillna("")
 
-    dataset.data_json = df.to_json(orient="records")
+    dataset.data_json = dataframe.to_json(
+        orient="records",
+        date_format="iso",
+    )
+
     db.commit()
 
-    return {"ok": True, "rows": len(df)}
+    return {
+        "ok": True,
+        "rows": len(dataframe),
+    }
 
 
-# -------------------------
-# 🔹 Export Excel
-# -------------------------
+# -------------------------------------------------------------------
+# Export a dataset as XLSX
+# -------------------------------------------------------------------
+
 @router.get("/{dataset_id}/export")
 def export_dataset(
     dataset_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    dataset = _require_owned_dataset(db, user, dataset_id)
+    dataset = _require_owned_dataset(
+        db,
+        user,
+        dataset_id,
+    )
 
-    data = _safe_load_json(dataset.data_json, default=[])
-    df = pd.DataFrame(data).fillna("")
+    data = _safe_load_json(
+        dataset.data_json,
+        default=[],
+    )
+
+    dataframe = pd.DataFrame(data).fillna("")
 
     buffer = io.BytesIO()
-    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False)
+
+    with pd.ExcelWriter(
+        buffer,
+        engine="openpyxl",
+    ) as writer:
+        dataframe.to_excel(
+            writer,
+            index=False,
+            sheet_name="Dataset",
+        )
 
     buffer.seek(0)
 
+    safe_stem = Path(dataset.name or "dataset").stem
+    export_name = f"{safe_stem}_export.xlsx"
+
     return StreamingResponse(
         buffer,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": 'attachment; filename="export.xlsx"'},
+        media_type=(
+            "application/vnd.openxmlformats-officedocument."
+            "spreadsheetml.sheet"
+        ),
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="{export_name}"'
+            )
+        },
     )
 
 
-# -------------------------
-# 🔹 Export metadata JSON
-# -------------------------
+# -------------------------------------------------------------------
+# Export dataset metadata
+# -------------------------------------------------------------------
+
 @router.get("/{dataset_id}/meta")
 def export_dataset_meta(
     dataset_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    dataset = _require_owned_dataset(db, user, dataset_id)
-    meta = _safe_load_json(getattr(dataset, "meta_json", None), default={})
-    # lo devolvemos como JSON normal
-    return {"dataset_id": dataset.id, "meta": meta}
+    dataset = _require_owned_dataset(
+        db,
+        user,
+        dataset_id,
+    )
+
+    metadata = _safe_load_json(
+        getattr(dataset, "meta_json", None),
+        default={},
+    )
+
+    return {
+        "dataset_id": dataset.id,
+        "meta": metadata,
+    }
 
 
-# -------------------------
-# 🔹 Listar datasets del usuario (id + nombre + fecha)
-# -------------------------
+# -------------------------------------------------------------------
+# List datasets belonging to the current user
+# -------------------------------------------------------------------
+
 @router.get("")
 def list_datasets(
     db: Session = Depends(get_db),
@@ -435,26 +820,38 @@ def list_datasets(
         .order_by(Dataset.created_at.desc())
         .all()
     )
+
     return [
         {
-            "dataset_id": d.id,
-            "name": d.name,
-            "created_at": d.created_at.isoformat() if d.created_at else None,
+            "dataset_id": dataset.id,
+            "name": dataset.name,
+            "created_at": (
+                dataset.created_at.isoformat()
+                if dataset.created_at
+                else None
+            ),
         }
-        for d in datasets
+        for dataset in datasets
     ]
 
 
-# -------------------------
-# 🔹 Borrar dataset
-# -------------------------
+# -------------------------------------------------------------------
+# Delete a dataset
+# -------------------------------------------------------------------
+
 @router.delete("/{dataset_id}")
 def delete_dataset(
     dataset_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    dataset = _require_owned_dataset(db, user, dataset_id)
+    dataset = _require_owned_dataset(
+        db,
+        user,
+        dataset_id,
+    )
+
     db.delete(dataset)
     db.commit()
+
     return {"ok": True}
