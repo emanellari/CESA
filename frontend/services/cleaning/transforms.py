@@ -195,12 +195,15 @@ def apply_user_config(df: pd.DataFrame, config: dict) -> pd.DataFrame:
         if isinstance(cfg, dict) and col in clean_df.columns
     }
 
-    # First pass: replacements and type conversion for every column.
-    # Converting all columns first makes formulas that reference other columns reliable.
+    # First pass:
+    # Apply replacements and convert every column to its selected type.
     for col, cfg in column_configs.items():
-        visual_replacements = parse_replacements(cfg.get("replacements", []))
+        visual_replacements = parse_replacements(
+            cfg.get("replacements", [])
+        )
 
-        # Backwards compatibility with the old {"old": ..., "new": ...} shape.
+        # Backwards compatibility with the old:
+        # {"old": ..., "new": ...}
         for item in cfg.get("replacements", []) or []:
             if isinstance(item, dict) and item.get("old") is not None:
                 visual_replacements[item["old"]] = item.get("new")
@@ -208,16 +211,30 @@ def apply_user_config(df: pd.DataFrame, config: dict) -> pd.DataFrame:
         manual_replacements = parse_replacements_text(
             cfg.get("replacements_text", "")
         )
-        all_replacements = {**visual_replacements, **manual_replacements}
-        clean_df[col] = apply_replacements(clean_df[col], all_replacements)
+
+        all_replacements = {
+            **visual_replacements,
+            **manual_replacements,
+        }
+
+        clean_df[col] = apply_replacements(
+            clean_df[col],
+            all_replacements,
+        )
 
         final_type = cfg.get("final_type", "text")
 
         if final_type == "number":
-            clean_df[col] = pd.to_numeric(clean_df[col], errors="coerce")
+            clean_df[col] = pd.to_numeric(
+                clean_df[col],
+                errors="coerce",
+            )
 
         elif final_type == "date":
-            clean_df[col] = pd.to_datetime(clean_df[col], errors="coerce")
+            clean_df[col] = pd.to_datetime(
+                clean_df[col],
+                errors="coerce",
+            )
 
         elif final_type == "boolean":
             mapped = convert_series_to_boolean(
@@ -229,15 +246,21 @@ def apply_user_config(df: pd.DataFrame, config: dict) -> pd.DataFrame:
 
             if cfg.get("other_values_strategy") == "drop":
                 keep_mask = mapped != "__DROP__"
+
                 clean_df = clean_df.loc[keep_mask].copy()
                 mapped = mapped.loc[keep_mask]
 
-            clean_df[col] = mapped.replace("__DROP__", pd.NA).astype("boolean")
+            clean_df[col] = (
+                mapped
+                .replace("__DROP__", pd.NA)
+                .astype("boolean")
+            )
 
         else:
             clean_df[col] = clean_df[col].astype("string")
 
-    # Second pass: null rules and outliers after all source columns have types.
+    # Second pass:
+    # Apply null handling after all columns have their selected types.
     for col, cfg in column_configs.items():
         if col not in clean_df.columns:
             continue
@@ -250,15 +273,43 @@ def apply_user_config(df: pd.DataFrame, config: dict) -> pd.DataFrame:
             column_config=cfg,
         )
 
-        # Restore the intended dtype after formula/custom filling.
         final_type = cfg.get("final_type", "text")
+
+        # Restore selected dtype after filling null values.
         if final_type == "number":
-            clean_df[col] = pd.to_numeric(clean_df[col], errors="coerce")
-            clean_df = handle_outliers(clean_df, col, col_config=cfg)
+            clean_df[col] = pd.to_numeric(
+                clean_df[col],
+                errors="coerce",
+            )
+
+            clean_df = handle_outliers(
+                clean_df,
+                col,
+                col_config=cfg,
+            )
+
         elif final_type == "date":
-            clean_df[col] = pd.to_datetime(clean_df[col], errors="coerce")
+            clean_df[col] = pd.to_datetime(
+                clean_df[col],
+                errors="coerce",
+            )
+
         elif final_type == "boolean":
             clean_df[col] = clean_df[col].astype("boolean")
+
+        elif final_type in ["text", "categorical"]:
+            clean_df[col] = clean_df[col].astype("string")
+
+            text_case = cfg.get("text_case")
+
+            if text_case == "lower":
+                clean_df[col] = clean_df[col].str.lower()
+
+            elif text_case == "upper":
+                clean_df[col] = clean_df[col].str.upper()
+
+            elif text_case == "title":
+                clean_df[col] = clean_df[col].str.title()
 
     return clean_df
 

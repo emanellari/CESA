@@ -5,6 +5,41 @@ from components.cleaning.replacement_editor import render_replacements_editor
 from services.cleaning.profiles import detect_boolean_defaults
 from services.cleaning.transforms import get_numeric_outlier_info
 
+def render_text_case_selector(
+    col_name: str,
+    config: dict,
+) -> None:
+    """Render and save the selected text case transformation."""
+
+    case_options = {
+        "No change": None,
+        "lowercase": "lower",
+        "UPPERCASE": "upper",
+        "Title Case": "title",
+    }
+
+    saved_value = config[col_name].get("text_case")
+
+    value_to_label = {
+        value: label
+        for label, value in case_options.items()
+    }
+
+    current_label = value_to_label.get(
+        saved_value,
+        "No change",
+    )
+
+    option_labels = list(case_options.keys())
+
+    selected_label = st.selectbox(
+        f"Case conversion for {col_name}",
+        option_labels,
+        index=option_labels.index(current_label),
+        key=f"case_{col_name}",
+    )
+
+    config[col_name]["text_case"] = case_options[selected_label]
 
 def render_column_editor(col_name: str, df: pd.DataFrame, profile: dict, config: dict):
     inferred = profile["inferred_type"]
@@ -77,18 +112,10 @@ def render_column_editor(col_name: str, df: pd.DataFrame, profile: dict, config:
             if selected_type in ["text", "categorical"]:
                 st.markdown("#### Text normalization")
 
-                case_option = st.selectbox(
-                    f"Case conversion for {col_name}",
-                    ["No change", "lowercase", "UPPERCASE", "Title Case"],
-                    key=f"case_{col_name}"
+                render_text_case_selector(
+                    col_name=col_name,
+                    config=config,
                 )
-
-                config[col_name]["text_case"] = {
-                    "No change": None,
-                    "lowercase": "lower",
-                    "UPPERCASE": "upper",
-                    "Title Case": "title"
-                }[case_option]
 
                 remove_special = st.checkbox(
                     "Remove special characters (á, ñ, symbols...)",
