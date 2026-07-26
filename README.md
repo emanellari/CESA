@@ -1,6 +1,15 @@
 <div align="center">
   <img src="frontend/icon.png" alt="CESA logo" width="112" />
 
+  [![Python](https://img.shields.io/badge/Python-3.x-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+  [![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+  [![Streamlit](https://img.shields.io/badge/Streamlit-Frontend-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
+  [![Pandas](https://img.shields.io/badge/Pandas-Data%20Processing-150458?logo=pandas&logoColor=white)](https://pandas.pydata.org/)
+  [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-Persistence-D71F00)](https://www.sqlalchemy.org/)
+  [![Plotly](https://img.shields.io/badge/Plotly-Interactive%20Charts-3F4F75?logo=plotly&logoColor=white)](https://plotly.com/python/)
+
+  <p>
+
   # CESA
 
 **A full-stack application for creating, cleaning, managing, and statistically analysing structured datasets.**
