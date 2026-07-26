@@ -418,17 +418,6 @@ This flow demonstrates how a new user can create an account, log into the platfo
 7. Access to protected functionality is closed.
 8. The user logs in again using the registered credentials.
 
-### Functionalities demonstrated
-
-- User registration
-- Credential validation
-- Secure login
-- Authenticated session creation
-- Protected workspace access
-- User logout
-- Session-state management
-- Navigation between authentication screens
-
 ### Why this matters
 
 The authentication layer allows CESA to operate as a multi-user application instead of a single local data tool.
