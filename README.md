@@ -463,19 +463,6 @@ Instead of manually creating database tables or editing spreadsheets, users defi
 8. Stored data is displayed inside the workspace.
 9. The dataset becomes available for review and analysis.
 
-### Supported field structure
-
-Depending on the configured schema, forms can contain:
-
-- Text fields
-- Numeric fields
-- Boolean values
-- Dates
-- Categorical values
-- Required fields
-- Optional fields
-- Structured attributes associated with a dataset
-
 ### Functionalities demonstrated
 
 - Dynamic form generation
