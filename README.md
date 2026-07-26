@@ -1,6 +1,7 @@
 <div align="center">
   <img src="frontend/icon.png" alt="CESA logo" width="112" />
-# CESA
+
+  # CESA
 
 **A full-stack application for creating, cleaning, managing, and statistically analysing structured datasets.**
 </div>
