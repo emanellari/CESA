@@ -194,8 +194,8 @@ CESA includes several safeguards that are especially important for a data applic
 Examples of supported formula styles:
 
 ```text
-Numeric:  {salary} + {bonus}
-Boolean:  {age} >= 18 and {active} == True
+Numeric:  {salary + bonus}
+Boolean:  {age >= 18 and active == True}
 Text:     {full_name.lower().replace(" ", "")}@example.com
 ```
 
