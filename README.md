@@ -391,8 +391,6 @@ Authorization: Bearer <access-token>
 
 ---
 
-##  Screenshots
-
 ## Product Walkthrough
 
 CESA provides an end-to-end workflow for importing raw datasets, configuring cleaning rules, generating schema-driven forms, editing records, and performing statistical analysis.
