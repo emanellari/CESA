@@ -391,7 +391,7 @@ Authorization: Bearer <access-token>
 
 ---
 
-## 🎬 Interactive Application Demonstrations
+## Interactive Application Demonstrations
 
 The following demonstrations present the main CESA workflows as complete user journeys.
 
@@ -401,7 +401,7 @@ Each demonstration includes contextual explanations while preserving the visibil
 
 ---
 
-## 🔐 1. Authentication and User Session Flow
+## 1. Authentication and User Session Flow
 
 CESA includes a complete authentication system that separates public access from the authenticated user workspace.
 
