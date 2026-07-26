@@ -232,7 +232,7 @@ flowchart LR
 
 ---
 
-## 📁 Project structure
+## Project structure
 
 ```text
 CESA/
@@ -273,7 +273,7 @@ CESA/
 ### 1. Clone the repository
 
 ```bash
-git clone <your-repository-url>
+git clone <https://github.com/emanellari/CESA>
 cd CESA
 ```
 
@@ -391,106 +391,413 @@ Authorization: Bearer <access-token>
 
 ---
 
-## Product Walkthrough
+## 🎬 Interactive Application Demonstrations
 
-CESA provides an end-to-end workflow for importing raw datasets, configuring cleaning rules, generating schema-driven forms, editing records, and performing statistical analysis.
+The following demonstrations present the main CESA workflows as complete user journeys.
 
----
+Instead of displaying isolated screenshots, these GIFs show how users interact with the platform, how data moves between modules, and how CESA supports the complete data lifecycle: authentication, structured data collection, record management, cleaning, editing, and statistical analysis.
 
-### 1. End-to-end data workflow
-
-CESA connects the complete data preparation process in one application: upload a raw dataset, inspect its structure, apply transformations, preview the result, and continue directly into editing and analysis.
-
-![CESA end-to-end workflow](docs/screenshots/01_cesa_workflow_overview.png)
+Each demonstration includes contextual explanations while preserving the visibility of the original application interface.
 
 ---
 
-### 2. Configurable cleaning studio
+## 🔐 1. Authentication and User Session Flow
 
-The cleaning interface supports dataset-level and column-level transformations, including missing-value handling, text normalization, formula-based completion, outlier treatment, row filtering, and derived columns.
+CESA includes a complete authentication system that separates public access from the authenticated user workspace.
 
-![CESA cleaning studio](docs/screenshots/02_cesa_cleaning_studio.png)
+This flow demonstrates how a new user can create an account, log into the platform, access protected functionality, close the active session, and securely return through the login process.
 
----
+### Workflow shown
 
-### 3. Value grouping and Boolean normalization
+1. The user opens the registration page.
+2. Account information is entered.
+3. Registration data is validated.
+4. A new user account is created.
+5. The authenticated workspace becomes available.
+6. The user logs out of the active session.
+7. Access to protected functionality is closed.
+8. The user logs in again using the registered credentials.
 
-CESA can consolidate inconsistent representations into canonical groups before analysis.
+### Functionalities demonstrated
 
-Examples include:
+- User registration
+- Credential validation
+- Secure login
+- Authenticated session creation
+- Protected workspace access
+- User logout
+- Session-state management
+- Navigation between authentication screens
 
-- `FINANCE`, `Finance`, and `finance` → `Finance`
-- `0`, `FALSE`, `N`, `NO`, `false`, and `no` → `False`
+### Why this matters
 
-This produces consistent values for forms, filters, calculations, and statistical models.
+The authentication layer allows CESA to operate as a multi-user application instead of a single local data tool.
 
-![CESA value grouping and Boolean normalization](docs/screenshots/08_cesa_value_grouping.png)
+Each user enters the platform through an individual account and works inside a controlled session. This provides the foundation for separating personal forms, uploaded datasets, saved records, and cleaning configurations.
 
----
-
-### 4. Before and after cleaning
-
-The preview workflow makes every transformation visible before the cleaned dataset is saved.
-
-Raw values can be standardized, missing values imputed, inconsistent text normalized, and analytical variables generated from the original columns.
-
-![CESA dataset before and after cleaning](docs/screenshots/03_cesa_before_after.png)
-
----
-
-### 5. Schema-driven forms with diverse field types
-
-CESA automatically generates data-entry forms from the cleaned dataset schema.
-
-The generated interface supports:
-
-- numeric and date inputs;
-- text and email fields;
-- dropdown selections;
-- radio-button groups;
-- Boolean and skill checkboxes.
-
-This allows users to add new records without manually designing a form for every dataset.
-
-![CESA schema-driven forms](docs/screenshots/09_cesa_diverse_forms.png)
+<p align="center">
+  <img
+    src="CESA_authentication_demo-1.gif"
+    alt="CESA authentication workflow demonstrating registration, login, logout and protected workspace access"
+    width="100%"
+  >
+</p>
 
 ---
 
-### 6. Data-quality and exploratory analysis
+## 2. Dynamic Form Creation, Record Storage and Analysis
 
-CESA summarizes the analytical readiness of a dataset through quality indicators, missing-value analysis, column profiling, risk detection, and correlation exploration.
+CESA allows users to create structured data-entry forms directly from the application.
 
-![CESA data-quality dashboard](docs/screenshots/05_cesa_analysis_dashboard.png)
+Instead of manually creating database tables or editing spreadsheets, users define the structure of the information through the interface. CESA then generates the corresponding form fields and provides a workspace for entering, saving, reviewing, and analysing records.
+
+### Workflow shown
+
+1. A new form is created.
+2. The form name and structure are configured.
+3. Columns and field types are defined.
+4. The generated form becomes available for data entry.
+5. The user enters a new record.
+6. Input values are validated according to the configured field types.
+7. The record is saved.
+8. Stored data is displayed inside the workspace.
+9. The dataset becomes available for review and analysis.
+
+### Supported field structure
+
+Depending on the configured schema, forms can contain:
+
+- Text fields
+- Numeric fields
+- Boolean values
+- Dates
+- Categorical values
+- Required fields
+- Optional fields
+- Structured attributes associated with a dataset
+
+### Functionalities demonstrated
+
+- Dynamic form generation
+- Schema configuration
+- Typed field creation
+- Data-entry validation
+- Record persistence
+- Dataset creation
+- Saved-record preview
+- Record review
+- Transition from data collection to analysis
+
+### Why this matters
+
+This workflow connects data collection directly with downstream analysis.
+
+Users do not need to move manually between a form builder, spreadsheet, database editor, and separate analytics tool. CESA keeps the complete process inside one connected application.
+
+The same information entered through the generated form can later be edited, cleaned, filtered, explored, and statistically analysed.
+
+<p align="center">
+  <img
+    src="CESA_form_save_analysis_demo-3.gif"
+    alt="CESA workflow demonstrating dynamic form creation, data entry, record storage and integrated analysis"
+    width="100%"
+  >
+</p>
 
 ---
 
-### 7. Statistical modeling and diagnostics
+##  3. Configurable Data-Cleaning Workflow
 
-The analysis workspace supports correlation analysis, multivariate modeling, fitted relationships, and residual diagnostics.
+The cleaning module allows users to prepare raw datasets through an interactive, column-aware configuration process.
 
-These views help users evaluate both model performance and the assumptions behind the results.
+Instead of applying the same rule to the entire dataset, CESA lets users choose transformations according to the type, content, and condition of each column.
 
-![CESA statistical modeling](docs/screenshots/06_cesa_statistical_modeling.png)
+The demonstration preserves the original interaction speed so that every selection, transformation, and result remains visible.
+
+### Workflow shown
+
+1. A dataset is opened in the cleaning workspace.
+2. The user reviews the original values and data types.
+3. Cleaning options are configured for selected columns.
+4. Different strategies are applied according to each column type.
+5. The cleaning process is executed.
+6. A transformed dataset is generated.
+7. Original and cleaned values are compared.
+8. The user reviews the final result before saving or continuing to analysis.
+
+### Missing-value handling
+
+CESA supports different null-value strategies depending on the column type and the intended analysis.
+
+Available approaches can include:
+
+- Filling numeric nulls with a calculated value
+- Replacing missing categorical values
+- Replacing missing boolean values
+- Applying a custom replacement value
+- Preserving null values when no transformation is required
+- Applying formula-based replacement rules
+
+### Text transformations
+
+Text columns can be standardised using operations such as:
+
+- Lowercase conversion
+- Uppercase conversion
+- Title case conversion
+- Text trimming
+- Whitespace normalisation
+- Standardised formatting
+- Custom text formulas
+
+### Numeric cleaning
+
+Numeric columns can be processed using configurable operations such as:
+
+- Missing-value replacement
+- Formula-based transformations
+- Value capping
+- Outlier detection
+- IQR-based outlier handling
+- Z-score-based outlier handling
+- Numeric validation
+- Range correction
+
+### Boolean, categorical and date preparation
+
+The cleaning workflow can also include:
+
+- Boolean-value normalisation
+- Categorical-value standardisation
+- Date parsing and preparation
+- Data-type-aware cleaning strategies
+- Column-level configuration
+- Preview of transformed values
+- Validation before saving the cleaned dataset
+
+### Before-and-after comparison
+
+CESA keeps the original and transformed data visible so that users can understand the effect of each cleaning configuration.
+
+This makes it possible to review:
+
+- Which values were modified
+- Which missing values were replaced
+- Which text values were standardised
+- Which outliers were capped or corrected
+- Whether column types remain consistent
+- Whether the resulting dataset is ready for analysis
+
+### Why this matters
+
+Data cleaning is not treated as a hidden automatic operation.
+
+CESA exposes the cleaning configuration to the user, making each transformation understandable, reviewable, and reproducible. This is especially important when preparing information for statistical analysis or machine-learning workflows, where an incorrect transformation can significantly affect the final result.
+
+### Before-and-after Excel examples
+
+The repository includes Excel files that demonstrate the effect of the cleaning process on a complete example dataset.
+
+These files allow reviewers to inspect the actual data before and after applying the cleaning configuration, rather than relying only on the visual demonstration.
+
+The examples can be found in:
+
+```text
+examples/cleaning/
+```
+
+Recommended repository structure:
+
+```text
+examples/cleaning/
+├── dataset_before_cleaning.xlsx
+├── dataset_after_cleaning.xlsx
+└── cleaning_comparison.md
+```
+
+#### Original dataset
+
+[`dataset_before_cleaning.xlsx`](examples/cleaning/dataset_before_cleaning.xlsx)
+
+This file contains the original unprocessed dataset before any cleaning operations are applied.
+
+It can include examples such as:
+
+- Missing numeric values
+- Missing categorical values
+- Inconsistent boolean formats
+- Irregular text capitalisation
+- Extra whitespace
+- Invalid or inconsistent date formats
+- Extreme numeric values
+- Outliers
+- Inconsistent categorical labels
+
+#### Cleaned dataset
+
+[`dataset_after_cleaning.xlsx`](examples/cleaning/dataset_after_cleaning.xlsx)
+
+This file contains the resulting dataset after the cleaning configuration has been executed through CESA.
+
+It demonstrates changes such as:
+
+- Filled or preserved missing values
+- Standardised text formatting
+- Normalised boolean values
+- Corrected categorical labels
+- Prepared date values
+- Capped or treated outliers
+- Formula-based numeric transformations
+- Improved consistency across columns
+
+#### Cleaning documentation
+
+[`cleaning_comparison.md`](examples/cleaning/cleaning_comparison.md)
+
+This document explains the main differences between the original and cleaned datasets.
+
+It can describe:
+
+- The rule applied to each column
+- The original issue detected
+- The cleaning strategy selected
+- The resulting transformation
+- The reason for applying the change
+- The expected effect on future analysis
+
+### Example comparison structure
+
+| Column | Original issue | Cleaning operation | Result |
+|---|---|---|---|
+| `age` | Missing numeric values | Filled using the selected numeric strategy | Complete numeric column |
+| `active` | Mixed boolean formats | Boolean normalisation | Consistent `True` / `False` values |
+| `category` | Inconsistent labels | Categorical standardisation | Unified categories |
+| `product_name` | Irregular capitalisation and spaces | Text trimming and title case | Standardised product names |
+| `salary` | Extreme values | IQR or Z-score-based treatment | Reduced outlier impact |
+| `registration_date` | Mixed date formats | Date parsing | Consistent date representation |
+
+These files allow users and reviewers to verify the cleaning output directly and understand how CESA transforms raw data into an analysis-ready dataset.
+
+<p align="center">
+  <img
+    src="CESA_cleaning_demo-2.gif"
+    alt="CESA configurable data-cleaning workflow showing column-level transformations and before-and-after comparison"
+    width="100%"
+  >
+</p>
 
 ---
 
-### 8. Interpretable regression analysis
+## 4. Guided Dataset Editing and Platform Navigation
 
-CESA presents regression results through both a visual fitted trend and a readable model equation.
+CESA provides a guided workflow for reviewing and editing records directly inside the workspace.
 
-The interface displays correlation strength, variance explained, slope, and the practical interpretation of the estimated relationship.
+This demonstration uses phase indicators and contextual captions to explain the current operation without covering the original application content.
 
-![CESA regression formula and fitted trend](docs/screenshots/10_cesa_regression_formula.png)
+The purpose is to show how users move through the platform and how the different modules form part of the same connected data workflow.
+
+### Workflow shown
+
+1. The user navigates to the dataset workspace.
+2. Existing records are displayed.
+3. A specific record is selected.
+4. Stored values are reviewed.
+5. Record information is edited.
+6. The changes are submitted.
+7. The dataset is updated.
+8. The user continues to the next stage of the workflow.
+
+### Functionalities demonstrated
+
+- Dataset navigation
+- Record visualisation
+- Direct record editing
+- Structured workspace interaction
+- Data update flow
+- Movement between application modules
+- Phase-based guidance
+- Contextual interface explanations
+
+### Guided presentation
+
+The demonstration includes:
+
+- A visible phase number
+- The name of the current operation
+- A short explanation of the objective
+- Progress indicators
+- Supporting subtitles positioned below the application
+- Unobstructed visibility of the original interface
+
+### Why this matters
+
+The editing interface allows users to correct or update stored information without directly accessing the database.
+
+This makes CESA more suitable for non-technical users while preserving a structured and controlled data-management process.
+
+<p align="center">
+  <img
+    src="CESA_automatic_analysis_demo-4.gif"
+    alt="Guided CESA dataset editing workflow with phase indicators and contextual explanations"
+    width="100%"
+  >
+</p>
 
 ---
 
-### 9. Dataset builder
+## Complete CESA Data Workflow
 
-CESA can also create structured datasets from scratch. Users define the fields and their data types, generate a schema-driven form, and begin adding records immediately.
+Together, the demonstrations represent the main application lifecycle:
 
-![CESA dataset builder](docs/screenshots/07_cesa_dataset_builder.png)
+```text
+User registration
+        ↓
+Secure login
+        ↓
+Form and schema creation
+        ↓
+Structured data entry
+        ↓
+Record storage
+        ↓
+Dataset review and editing
+        ↓
+Data cleaning and transformation
+        ↓
+Before-and-after validation
+        ↓
+Exploratory and statistical analysis
+```
+
+CESA is designed to connect all these stages inside a single platform.
+
+Rather than providing isolated scripts for cleaning or analysis, the application combines:
+
+- User authentication
+- Dynamic form generation
+- Structured data collection
+- Database-backed record management
+- Dataset editing
+- Configurable preprocessing
+- Before-and-after validation
+- Data visualisation
+- Statistical analysis
+
+This allows users to move from raw information to analysis-ready data through one consistent interface.
+
 ---
 
+## Demonstration Notes
+
+- The GIFs preserve the original interaction pace.
+- Important clicks and interface transitions remain visible.
+- Explanations are synchronised with the actions shown on screen.
+- Captions are positioned so that they do not hide relevant application content.
+- Cleaning demonstrations include visible before-and-after context.
+- Excel examples allow direct inspection of the original and transformed datasets.
+- The demonstrations focus on complete platform workflows rather than static interface previews.
+
+---
 ## Future improvements
 
 - Automated test suite for API, cleaning rules, and statistical calculations.
