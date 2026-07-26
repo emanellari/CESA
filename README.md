@@ -3,6 +3,7 @@
   
   # CESA
   
+**A full-stack application for creating, cleaning, managing, and statistically analysing structured datasets.**
   [![Python](https://img.shields.io/badge/Python-3.x-3776AB?logo=python&logoColor=white)](https://www.python.org/)
   [![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
   [![Streamlit](https://img.shields.io/badge/Streamlit-Frontend-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
@@ -12,9 +13,9 @@
 
   <p>
 
+    ---
 
 
-**A full-stack application for creating, cleaning, managing, and statistically analysing structured datasets.**
 </div>
 
 CESA connects the complete data workflow inside one interface:
