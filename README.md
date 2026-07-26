@@ -338,11 +338,6 @@ Exploratory and statistical analysis
         â†“
 Excel export
 ```
-
-CESA is designed as one connected application rather than a collection of isolated scripts.
-
----
-
 ## Security-focused design
 
 CESA includes safeguards that are especially important for a data application:
