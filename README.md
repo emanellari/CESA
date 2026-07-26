@@ -1,14 +1,14 @@
 <div align="center">
   <img src="frontend/icon.png" alt="CESA logo" width="112" />
-
 # CESA
 
 **A full-stack application for creating, cleaning, managing, and statistically analysing structured datasets.**
 </div>
+
 CESA connects the complete data workflow inside one interface:
 
 ```text
-Create or upload â†’ Profile â†’ Clean â†’ Generate form schema â†’ Edit â†’ Analyse â†’ Export
+Create or upload → Profile → Clean → Generate form schema → Edit → Analyse → Export
 ```
 
 Users can create a dataset from scratch or upload an existing file, configure reproducible cleaning rules, generate a schema-aware data-entry form, manage records, run guided statistical analyses, and export the final dataset.
@@ -211,9 +211,9 @@ CESA keeps the original and transformed data available for review so users can v
 
 The repository includes real files that allow the cleaning result to be inspected beyond the GIF:
 
-- [`employee_dataset_original.csv`](examples/cleaning/employee_dataset_original.csv) â€” the original dataset containing intentionally incomplete and inconsistent values.
-- [`employ_dataset_after_cleaning.xlsx`](examples/cleaning/employ_dataset_after_cleaning.xlsx) â€” the cleaned dataset exported after applying the configured transformations in CESA.
-- [`cleaning_comparison.md`](cleaning_comparison.md) â€” a detailed comparison of the original and cleaned outputs.
+- [`employee_dataset_original.csv`](examples/cleaning/employee_dataset_original.csv) — the original dataset containing intentionally incomplete and inconsistent values.
+- [`employ_dataset_after_cleaning.xlsx`](examples/cleaning/employ_dataset_after_cleaning.xlsx) — the cleaned dataset exported after applying the configured transformations in CESA.
+- [`cleaning_comparison.md`](cleaning_comparison.md) — a detailed comparison of the original and cleaned outputs.
 
 The comparison documents changes such as:
 
@@ -269,9 +269,9 @@ For categorical variables:
 
 CESA adapts to the selected pair:
 
-- **numeric Ã— numeric:** Pearson and Spearman correlation, simple linear regression, explained variance, scatter plot, and residual diagnostics;
-- **numeric Ã— categorical:** group summaries, distribution comparisons, significance testing, and effect interpretation;
-- **categorical Ã— categorical:** contingency tables, chi-square analysis, CramÃ©r's V, normalised proportions, and heatmaps.
+- **numeric × numeric:** Pearson and Spearman correlation, simple linear regression, explained variance, scatter plot, and residual diagnostics;
+- **numeric × categorical:** group summaries, distribution comparisons, significance testing, and effect interpretation;
+- **categorical × categorical:** contingency tables, chi-square analysis, Cramér's V, normalised proportions, and heatmaps.
 
 #### Three-variable analysis
 
@@ -288,7 +288,7 @@ The visualisation changes according to the variable combination:
 - Multiple ordinary least squares regression
 - Coefficients and p-values
 - Confidence intervals
-- RÂ² and adjusted RÂ²
+- R² and adjusted R²
 - Residual diagnostics
 - Variance Inflation Factor
 - Plain-language interpretation and suggested next steps
@@ -296,7 +296,7 @@ The visualisation changes according to the variable combination:
 #### Statistical tests
 
 - Pearson or Spearman correlation
-- Chi-square test with CramÃ©r's V
+- Chi-square test with Cramér's V
 - Welch t-test
 - One-way ANOVA
 - Effect-size summaries
@@ -317,27 +317,32 @@ The visualisation changes according to the variable combination:
 
 ```text
 User registration
-        â†“
+        ↓
 Secure login
-        â†“
+        ↓
 Dataset creation or upload
-        â†“
+        ↓
 Profiling and type inference
-        â†“
+        ↓
 Column-level cleaning configuration
-        â†“
+        ↓
 Before-and-after validation
-        â†“
+        ↓
 Schema-aware form generation
-        â†“
+        ↓
 Record entry and persistence
-        â†“
+        ↓
 Dataset review and editing
-        â†“
+        ↓
 Exploratory and statistical analysis
-        â†“
+        ↓
 Excel export
 ```
+
+CESA is designed as one connected application rather than a collection of isolated scripts.
+
+---
+
 ## Security-focused design
 
 CESA includes safeguards that are especially important for a data application:
@@ -373,7 +378,7 @@ flowchart LR
     API --> AUTH[Authentication service]
     API --> ORM[SQLAlchemy ORM]
     ORM --> DB[(SQLite by default)]
-    ANALYSIS --> LIBS[SciPy Â· Statsmodels Â· Plotly]
+    ANALYSIS --> LIBS[SciPy · Statsmodels · Plotly]
 ```
 
 ### Main technologies
@@ -395,38 +400,38 @@ flowchart LR
 
 ```text
 CESA/
-â”œâ”€â”€ backend/
-â”‚   â”œâ”€â”€ core/                 # Shared calculations
-â”‚   â”œâ”€â”€ routers/              # Authentication, datasets, and statistics API
-â”‚   â”œâ”€â”€ app.py                # FastAPI application
-â”‚   â”œâ”€â”€ auth.py               # Password hashing and JWT handling
-â”‚   â”œâ”€â”€ db.py                 # SQLAlchemy configuration
-â”‚   â”œâ”€â”€ deps.py               # Authenticated-user dependency
-â”‚   â”œâ”€â”€ models.py             # Database models
-â”‚   â””â”€â”€ schemas.py            # API schemas
-â”œâ”€â”€ frontend/
-â”‚   â”œâ”€â”€ api/                  # Backend client functions
-â”‚   â”œâ”€â”€ components/           # Forms, tables, cleaning, charts, and analysis
-â”‚   â”œâ”€â”€ constants/            # Navigation constants
-â”‚   â”œâ”€â”€ pages/                # Streamlit pages
-â”‚   â”œâ”€â”€ services/             # Cleaning, dataset, and statistics services
-â”‚   â”œâ”€â”€ utils/                # Session and UI helpers
-â”‚   â”œâ”€â”€ icon.png
-â”‚   â”œâ”€â”€ streamlit_app.py      # Streamlit entry point
-â”‚   â””â”€â”€ styles.css            # Application styling
-â”œâ”€â”€ examples/
-â”‚   â””â”€â”€ cleaning/
-â”‚       â”œâ”€â”€ employee_dataset_original.csv
-â”‚       â””â”€â”€ employ_dataset_after_cleaning.xlsx
-â”œâ”€â”€ CESA_authentication_demo-1.gif
-â”œâ”€â”€ CESA_cleaning_demo-2.gif
-â”œâ”€â”€ CESA_form_save_analysis_demo-3.gif
-â”œâ”€â”€ CESA_automatic_analysis_demo-4.gif
-â”œâ”€â”€ cleaning_comparison.md
-â”œâ”€â”€ .env.example
-â”œâ”€â”€ .gitignore
-â”œâ”€â”€ README.md
-â””â”€â”€ requirements.txt
+├── backend/
+│   ├── core/                 # Shared calculations
+│   ├── routers/              # Authentication, datasets, and statistics API
+│   ├── app.py                # FastAPI application
+│   ├── auth.py               # Password hashing and JWT handling
+│   ├── db.py                 # SQLAlchemy configuration
+│   ├── deps.py               # Authenticated-user dependency
+│   ├── models.py             # Database models
+│   └── schemas.py            # API schemas
+├── frontend/
+│   ├── api/                  # Backend client functions
+│   ├── components/           # Forms, tables, cleaning, charts, and analysis
+│   ├── constants/            # Navigation constants
+│   ├── pages/                # Streamlit pages
+│   ├── services/             # Cleaning, dataset, and statistics services
+│   ├── utils/                # Session and UI helpers
+│   ├── icon.png
+│   ├── streamlit_app.py      # Streamlit entry point
+│   └── styles.css            # Application styling
+├── examples/
+│   └── cleaning/
+│       ├── employee_dataset_original.csv
+│       └── employ_dataset_after_cleaning.xlsx
+├── CESA_authentication_demo-1.gif
+├── CESA_cleaning_demo-2.gif
+├── CESA_form_save_analysis_demo-3.gif
+├── CESA_automatic_analysis_demo-4.gif
+├── cleaning_comparison.md
+├── .env.example
+├── .gitignore
+├── README.md
+└── requirements.txt
 ```
 
 ---
