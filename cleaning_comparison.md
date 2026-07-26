@@ -1,6 +1,6 @@
 # CESA Cleaning Comparison
 
-This document compares the original demo workbook, [`CESA_demo_dataset.xlsx`](../../CESA_demo_dataset.xlsx), with the cleaned output, [`employ_dataset_after_cleaning.xlsx`](../../employ_dataset_after_cleaning.xlsx).
+This document compares the original demo workbook, [`dataset_before_cleaning.xlsx`](examples/cleaning/dataset_before_cleaning.xlsx), with the cleaned output, [`dataset_after_cleaning.xlsx`](examples/cleaning/dataset_after_cleaning.xlsx).
 
 It is intended to accompany the cleaning GIF in the main README and provide a direct, inspectable before-and-after example of CESA's data-cleaning workflow.
 
